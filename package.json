@@ -1,0 +1,11 @@
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "description": "A simple project using http-server",
+  "scripts": {
+    "start": "http-server -p 8000 -c-1 --cors"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1"
+  }
+}
