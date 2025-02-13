@@ -1,4 +1,8 @@
 /*
+  Development of the Open Lab ganttMaster.js
+  Modifications written by Euan Freeman
+  Copyright (c) 2025 Euan Freeman
+
  Copyright (c) 2012-2018 Open Lab
  Written by Roberto Bicchierai and Silvia Chelazzi http://roberto.open-lab.com
  Permission is hereby granted, free of charge, to any person obtaining
@@ -19,6 +23,13 @@
  LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+/**
+ * Constructor for the GanttMaster class. This class is responsible for handling
+ * the main logic and state for a Gantt chart, including tasks, dependencies, resources,
+ * and permissions. It also manages UI elements such as the editor, Gantt view, and splitter layout.
+ *
+ * @return {GanttMaster} Returns an instance of the GanttMaster class configured with default properties.
  */
 function GanttMaster() {
   this.tasks = [];
@@ -90,6 +101,15 @@ function GanttMaster() {
 }
 
 
+/**
+ * Initializes the GanttMaster instance by setting up the editor, work-space, grid, and other
+ * essential components for rendering and interacting with the Gantt chart.
+ *
+ * This method is responsible for binding event listeners, preparing the DOM structure,
+ * and setting the necessary configurations for the Gantt chart to function correctly.
+ *
+ * @param {Object} place - The DOM element or container where the Gantt chart will be initialized.
+ */
 GanttMaster.prototype.init = function (workSpace) {
   var place=$("<div>").prop("id","TWGanttArea").css( {padding:0, "overflow-y":"auto", "overflow-x":"hidden","border":"1px solid #e5e5e5",position:"relative"});
   workSpace.append(place).addClass("TWGanttWorkSpace");
@@ -266,6 +286,12 @@ GanttMaster.prototype.init = function (workSpace) {
 
 };
 
+/**
+ * The `GanttMaster.messages` object contains a collection of localized messages or strings
+ * typically used for internationalization and user interface text in the GanttMaster library.
+ * These messages can be used for displaying prompts, alerts, confirmations, or any other
+ * user-facing text, and allow for easy customization and translation.
+ */
 GanttMaster.messages = {
   "CANNOT_WRITE":                          "CANNOT_WRITE",
   "CHANGE_OUT_OF_SCOPE":                   "NO_RIGHTS_FOR_UPDATE_PARENTS_OUT_OF_EDITOR_SCOPE",
@@ -292,13 +318,30 @@ GanttMaster.messages = {
   "CANNOT_CREATE_SAME_LINK":               "CANNOT_CREATE_SAME_LINK"
 };
 
-
+//TODO: Needs the id to come from the PostgreSQL database
+/**
+ * Creates a new task and attaches it to the project structure.
+ *
+ * @param {string} name - The name of the task to be created.
+ * @param {Date} start - The starting date of the task.
+ * @param {number} duration - The duration of the task in project units (e.g., days).
+ * @returns {Task} The created task object with updated project task list and hierarchy.
+ */
 GanttMaster.prototype.createTask = function (id, name, code, level, start, duration) {
   var factory = new TaskFactory();
   return factory.build(id, name, code, level, start, duration);
 };
 
 
+/**
+ * Retrieves an existing resource from the resource list based on its name.
+ * If the resource with the specified name does not exist in the list,
+ * this method creates a new resource, adds it to the resource list,
+ * and returns the newly created resource object.
+ *
+ * @param {string} resourceName - The name of the resource to retrieve or create.
+ * @returns {object} The retrieved or newly created resource object.
+ */
 GanttMaster.prototype.getOrCreateResource = function (id, name) {
   var res= this.getResource(id);
   if (!res && id && name) {
@@ -307,6 +350,13 @@ GanttMaster.prototype.getOrCreateResource = function (id, name) {
   return res
 };
 
+/**
+ * Creates a new resource and adds it to the project's resource list.
+ * The new resource is assigned a unique ID and initialized with the provided name.
+ *
+ * @param {string} resourceName - The name of the resource to be created.
+ * @returns {object} The newly created resource object, containing an ID and name.
+ */
 GanttMaster.prototype.createResource = function (id, name) {
   var res = new Resource(id, name);
   this.resources.push(res);
@@ -315,6 +365,15 @@ GanttMaster.prototype.createResource = function (id, name) {
 
 
 //update depends strings
+/**
+ * Updates the dependency strings for all tasks in the Gantt chart.
+ * This method iterates over each task in the project and recalculates
+ * the dependency strings, which represent the relationships between tasks.
+ * Dependencies are encoded to reflect the task's predecessors and constraints.
+ *
+ * The updated dependency strings are stored in each task's "depends" property.
+ * Ensures that all dependencies are consistent with the current project structure.
+ */
 GanttMaster.prototype.updateDependsStrings = function () {
   //remove all deps
   for (var i = 0; i < this.tasks.length; i++) {
@@ -329,6 +388,16 @@ GanttMaster.prototype.updateDependsStrings = function () {
 
 };
 
+/**
+ * Removes a link from the current Gantt project by its ID.
+ *
+ * This method deletes a specified link from the internal array of links in the Gantt master data.
+ * It performs the removal by matching the supplied link ID.
+ * If the link is successfully removed, it triggers a refresh of the task grid and the Gantt chart.
+ * If the provided link ID is invalid or not found, the method does nothing.
+ *
+ * @param {string} linkId - The unique identifier of the link to be removed.
+ */
 GanttMaster.prototype.removeLink = function (fromTask, toTask) {
   //console.debug("removeLink");
   if (!this.permissions.canWrite || (!fromTask.canWrite && !toTask.canWrite))
@@ -352,6 +421,13 @@ GanttMaster.prototype.removeLink = function (fromTask, toTask) {
   this.endTransaction();
 };
 
+/**
+ * Removes all links from the current project by clearing the links array
+ * and resetting the dependencies for all tasks in the task list.
+ * Iterates through the task list and sets the 'depends' property of each
+ * task to an empty string, ensuring that no dependencies remain after
+ * this operation.
+ */
 GanttMaster.prototype.__removeAllLinks = function (task, openTrans) {
 
   if (openTrans)
@@ -372,6 +448,23 @@ GanttMaster.prototype.__removeAllLinks = function (task, openTrans) {
 };
 
 //------------------------------------  ADD TASK --------------------------------------------
+//TODO: Add in request to PostgreSQL to create new task and receiving back the unique task ID
+//TODO: Write task update function that will be used in multiple methods (probably best in ganttTask.js)
+/**
+ * Adds a new task to the Gantt chart.
+ *
+ * This method is used to add a task to the project's task hierarchy.
+ * It ensures that the new task is properly linked to the specified parent task
+ * if provided, and updates the task dependencies and project timeline accordingly.
+ *
+ * @param {Task} task - The task object to be added. It should contain properties
+ *                      such as id, name, start date, duration, and dependencies.
+ * @param {number} [parentId] - The ID of the parent task, if the new task is a subtask.
+ *                              If no parentId is provided, the task is added as a root task.
+ * @throws {Error} Throws an error if the task object is invalid or if adding the task
+ *                 violates project constraints.
+ * @returns {boolean} Returns true if the task is successfully added, otherwise false.
+ */
 GanttMaster.prototype.addTask = function (task, row) {
   //console.debug("master.addTask",task,row,this);
 
@@ -428,10 +521,16 @@ GanttMaster.prototype.addTask = function (task, row) {
   return ret;
 };
 
-
+//TODO: Convert this to work with PostgreSQL database rather than a file
 /**
- * a project contais tasks, resources, roles, and info about permisions
- * @param project
+ * Loads a project into the GanttMaster instance.
+ *
+ * This method initializes the GanttMaster instance with the data related to the project.
+ * It sets up tasks, resources, and dependencies, and prepares the Gantt chart for rendering.
+ *
+ * @param {Object} project - The project data containing tasks, resources, and dependencies.
+ * @throws {Error} Throws an error if the input project data is invalid or incomplete.
+ * @returns {boolean} Returns true if the project is successfully loaded, otherwise false.
  */
 GanttMaster.prototype.loadProject = function (project) {
   //console.debug("loadProject", project)
@@ -495,6 +594,12 @@ GanttMaster.prototype.loadProject = function (project) {
 };
 
 
+/**
+ * Loads a list of tasks into the Gantt chart and processes them for rendering.
+ *
+ * @param {Array} tasks - An array of task objects to be loaded. Each task object should have the required fields necessary for Gantt chart rendering.
+ * @throws {Error} Throws an error if the tasks array is invalid or if any task object is improperly formatted.
+ */
 GanttMaster.prototype.loadTasks = function (tasks, selectedRow) {
   //console.debug("GanttMaster.prototype.loadTasks")
   //var prof=new Profiler("ganttMaster.loadTasks");
@@ -558,6 +663,12 @@ GanttMaster.prototype.loadTasks = function (tasks, selectedRow) {
 };
 
 
+/**
+ * Retrieves a task by its unique identifier (ID).
+ *
+ * @param {string|number} taskId - The ID of the task to be retrieved.
+ * @returns {Object|null} The task object if found, or null if no task with the specified ID exists.
+ */
 GanttMaster.prototype.getTask = function (taskId) {
   var ret;
   for (var i = 0; i < this.tasks.length; i++) {
@@ -571,6 +682,12 @@ GanttMaster.prototype.getTask = function (taskId) {
 };
 
 
+/**
+ * Retrieves a resource object by its unique identifier.
+ *
+ * @param {number|string} id - The unique identifier of the resource to retrieve.
+ * @returns {Object|null} The resource object matching the given id, or null if no resource is found.
+ */
 GanttMaster.prototype.getResource = function (resId) {
   var ret;
   for (var i = 0; i < this.resources.length; i++) {
@@ -584,21 +701,60 @@ GanttMaster.prototype.getResource = function (resId) {
 };
 
 
+/**
+ * Updates the dependencies of a task and triggers the necessary updates in the Gantt chart.
+ *
+ * @param {Object} task - The task object whose dependencies are to be changed.
+ * @param {Array} newDeps - An array of new dependencies for the task. Each dependency is typically represented by the ID of the task it depends on.
+ * @returns {void}
+ */
 GanttMaster.prototype.changeTaskDeps = function (task) {
   return task.moveTo(task.start,false,true);
 };
 
+/**
+ * Changes the start and/or end dates of a given task.
+ *
+ * If the new dates are within acceptable limits and do not conflict with project constraints,
+ * this method updates the task's start and/or end date and adjusts related attributes such as duration and dependencies.
+ *
+ * It also triggers updates to child, parent, and dependent tasks based on the changes.
+ *
+ * @param {Object} task - The task object whose dates need to be changed.
+ * @param {Date} start - The new start date for the task.
+ * @param {Date} end - The new end date for the task.
+ * @returns {boolean} - Returns true if the task dates were successfully changed, false otherwise.
+ */
 GanttMaster.prototype.changeTaskDates = function (task, start, end) {
   //console.debug("changeTaskDates",task, start, end)
   return task.setPeriod(start, end);
 };
 
 
+/**
+ * Moves a task to a new position or within a different structure in the Gantt chart.
+ *
+ * @param {Task} task - The task to be moved.
+ * @param {number} newStart - The new start date for the task, represented as a timestamp.
+ * @param {number} [newEnd] - (Optional) The new end date for the task, represented as a timestamp.
+ * @returns {boolean} Returns true if the task was successfully moved, otherwise false.
+ */
 GanttMaster.prototype.moveTask = function (task, newStart) {
   return task.moveTo(newStart, true,true);
 };
 
 
+/**
+ * Handles updates to a task in the Gantt chart and triggers necessary operations when a task is modified.
+ *
+ * This function is called when a task's properties have been modified. It checks if
+ * the task is a root task or a dependent task. Additionally, it ensures the integrity of the task's data
+ * and updates task dependencies, effort recalculations, and resource assignments if required.
+ *
+ * @param {Task} task - The task that has been updated or changed.
+ * @param {boolean} [updateRequires=true] - Indicates whether the function should update the task's dependencies.
+ *                                           By default, dependencies are updated when the task changes.
+ */
 GanttMaster.prototype.taskIsChanged = function () {
   //console.debug("taskIsChanged");
   var master = this;
@@ -617,6 +773,16 @@ GanttMaster.prototype.taskIsChanged = function () {
 };
 
 
+/**
+ * Checks and applies permission settings to the buttons in the GanttMaster interface.
+ * It iterates over all buttons defined in the Gantt interface and enables or disables them
+ * based on the user's permissions specified in the `permissions` object.
+ *
+ * This method evaluates button permissions dynamically against the corresponding
+ * permission keys and adjusts their operability within the user interface.
+ *
+ * @method
+ */
 GanttMaster.prototype.checkButtonPermissions = function () {
   var ganttButtons=$(".ganttButtonBar");
   //hide buttons basing on permissions
@@ -644,11 +810,30 @@ GanttMaster.prototype.checkButtonPermissions = function () {
 };
 
 
+/**
+ * Redraws the Gantt chart interface based on the current data and settings.
+ * This method typically triggers a visual update, ensuring the UI reflects
+ * any changes made to the task list, dependencies, settings, or other
+ * attributes related to the Gantt chart.
+ *
+ * It is usually called after operations such as modifying tasks,
+ * updating dependencies, or resizing columns.
+ *
+ * The method is responsible for adjusting the graphical representation
+ * of tasks, the grid, and any other chart elements to accurately
+ * represent the current state of the project.
+ */
 GanttMaster.prototype.redraw = function () {
   this.editor.redraw();
   this.gantt.redraw();
 };
 
+/**
+ * Resets the GanttMaster instance to its initial state.
+ * This method clears all data, tasks, and dependencies and,
+ * if necessary, reinitializes internal structures.
+ * It is typically used for restarting or reloading the Gantt chart.
+ */
 GanttMaster.prototype.reset = function () {
   //console.debug("GanttMaster.prototype.reset");
   this.tasks = [];
@@ -667,15 +852,39 @@ GanttMaster.prototype.reset = function () {
 };
 
 
+/**
+ * Displays the task editor for the specified task, allowing users to edit its properties.
+ * This method is typically called when a task is selected for editing.
+ *
+ * @param {Task} task - The task object to be edited.
+ */
 GanttMaster.prototype.showTaskEditor = function (taskId) {
   var task = this.getTask(taskId);
   task.rowElement.find(".edit").click();
 };
 
+/**
+ * Saves the current project state.
+ *
+ * This method serializes the project's current state, including tasks, resources, roles, and configurations,
+ * into a JSON object. It can be used to persist the project data for storage or transfer.
+ *
+ * @returns {Object} A JSON object representing the current state of the project, including tasks,
+ * resources, dependencies, and other project-related data.
+ */
 GanttMaster.prototype.saveProject = function () {
   return this.saveGantt(false);
 };
 
+/**
+ * Saves the current state of the Gantt chart, including all tasks, links, and settings.
+ *
+ * This method collects the current state of the Gantt chart, serializes it in JSON format,
+ * and triggers a save operation to persist the data. It is typically used to ensure
+ * that any changes made to the Gantt chart are stored and can be retrieved later.
+ *
+ * @returns {string} A JSON string representation of the current Gantt chart's state.
+ */
 GanttMaster.prototype.saveGantt = function (forTransaction) {
   //var prof = new Profiler("gm_saveGantt");
   var saved = [];
@@ -723,6 +932,12 @@ GanttMaster.prototype.saveGantt = function (forTransaction) {
 };
 
 
+/**
+ * Marks tasks and assignments as unchanged within the GanttMaster instance.
+ * This method is typically used to reset the change state of tasks and
+ * assignments after a specific operation has been completed or to prepare
+ * them for a change-detection mechanism.
+ */
 GanttMaster.prototype.markUnChangedTasksAndAssignments=function(newProject){
   //console.debug("markUnChangedTasksAndAssignments");
   //si controlla che ci sia qualcosa di cambiato, ovvero che ci sia l'undo stack
@@ -796,6 +1011,13 @@ GanttMaster.prototype.markUnChangedTasksAndAssignments=function(newProject){
   }
 };
 
+/**
+ * Loads the collapsed state of tasks into the GanttMaster instance.
+ * This method iterates through tasks and marks them as collapsed
+ * based on a provided array containing the IDs of collapsed tasks.
+ *
+ * @param {Array<string | number>} collapsedTasks - An array of task IDs representing the tasks that should be marked as collapsed.
+ */
 GanttMaster.prototype.loadCollapsedTasks = function () {
   var collTasks=[];
   if (localStorage ) {
@@ -805,6 +1027,12 @@ GanttMaster.prototype.loadCollapsedTasks = function () {
   }
 };
 
+/**
+ * Stores the IDs of all collapsed tasks in the Gantt chart.
+ * Iterates through the list of tasks in the project and records the IDs of tasks that are collapsed (i.e., have their "collapsed" property set to true).
+ *
+ * @returns {Array<number>} An array containing the IDs of all collapsed tasks.
+ */
 GanttMaster.prototype.storeCollapsedTasks = function () {
   //console.debug("storeCollapsedTasks");
   if (localStorage) {
@@ -833,6 +1061,19 @@ GanttMaster.prototype.storeCollapsedTasks = function () {
 
 
 
+/**
+ * Updates the links between tasks in the Gantt chart.
+ * Ensures that task dependencies are correctly aligned and validated.
+ *
+ * This function iterates over all tasks and updates their link states,
+ * recalculating dependencies based on the current task status and relationships.
+ *
+ * It performs the following actions:
+ * - Clears the existing dependencies for each task.
+ * - Recomputes the incoming and outgoing links for each task.
+ * - Ensures that circular dependencies are not present.
+ * - Validates the consistency of links among tasks.
+ */
 GanttMaster.prototype.updateLinks = function (task) {
   //console.debug("updateLinks",task);
   //var prof= new Profiler("gm_updateLinks");
@@ -958,6 +1199,13 @@ GanttMaster.prototype.updateLinks = function (task) {
 };
 
 
+/**
+ * Moves the currently selected task up in the task list.
+ * This action adjusts the position of the current task in the hierarchy to place it before its preceding sibling.
+ * The method ensures that task dependencies and the project's structure remain valid after the task is moved.
+ * If the current task is at the top of the list or unable to be moved, no changes will occur.
+ * The method triggers necessary events to update the UI and notify other components of the change.
+ */
 GanttMaster.prototype.moveUpCurrentTask = function () {
   var self = this;
   //console.debug("moveUpCurrentTask",self.currentTask)
@@ -971,6 +1219,23 @@ GanttMaster.prototype.moveUpCurrentTask = function () {
   }
 };
 
+/**
+ * Moves the currently selected task down in the task list.
+ * This function adjusts the task's position and updates the task's dependencies
+ * while ensuring data consistency and UI updates.
+ *
+ * Preconditions:
+ * - A task must be selected as the current task.
+ * - The current task must not already be the last task in the list.
+ *
+ * Postconditions:
+ * - The current task is moved to the next position in the task list.
+ * - Dependencies between tasks are maintained after the move.
+ * - The user interface is refreshed to reflect the updated task order.
+ *
+ * Throws:
+ * - Throws an error if no task is selected or if the operation violates task constraints.
+ */
 GanttMaster.prototype.moveDownCurrentTask = function () {
   var self = this;
   //console.debug("moveDownCurrentTask",self.currentTask)
@@ -984,6 +1249,17 @@ GanttMaster.prototype.moveDownCurrentTask = function () {
   }
 };
 
+/**
+ * Outdents the currently selected task in the Gantt chart.
+ *
+ * The method decreases the task's indentation level, effectively moving it up
+ * one level in the task hierarchy, provided the current task can be outdented.
+ * If the task cannot be outdented (e.g., it is already at the top level), no changes
+ * are made.
+ *
+ * The parent-child relationship of tasks is updated, and the task's position in
+ * the hierarchy is adjusted in accordance with the outdenting operation.
+ */
 GanttMaster.prototype.outdentCurrentTask = function () {
   var self = this;
   if (self.currentTask) {
@@ -1001,6 +1277,29 @@ GanttMaster.prototype.outdentCurrentTask = function () {
   }
 };
 
+/**
+ * Indents the currently selected task in the Gantt chart hierarchy.
+ * This operation shifts the current task to become a child of its immediate preceding sibling,
+ * provided the hierarchy allows such an operation. The method updates the task's structure,
+ * recalculates dependencies, and adjusts related task properties.
+ *
+ * If the operation is not feasible (e.g., there is no immediate preceding sibling or
+ * the task hierarchy does not allow indentation), the method does not perform the action.
+ *
+ * Related changes triggered by this action include:
+ * - Updating the parent-child relationship for the current task and its siblings.
+ * - Recalculating the scheduling constraints and dependencies for all affected tasks.
+ * - Adjusting the task hierarchy and visualization accordingly in the Gantt chart interface.
+ *
+ * Preconditions:
+ * - A task must be selected as the current task.
+ * - The selected task must have an immediate preceding sibling eligible for parent-child restructuring.
+ *
+ * Postconditions:
+ * - The selected task becomes a child of its immediate preceding sibling if the operation
+ *   is valid.
+ * - Task relationships, constraints, and the overall structure are updated in the Gantt chart.
+ */
 GanttMaster.prototype.indentCurrentTask = function () {
   var self = this;
   if (self.currentTask) {
@@ -1016,6 +1315,23 @@ GanttMaster.prototype.indentCurrentTask = function () {
   }
 };
 
+/**
+ * Adds a new task below the currently selected task in the Gantt chart.
+ * The new task will be created as a sibling task of the currently selected task.
+ *
+ * If no task is currently selected, this method will not perform any action.
+ * If the currently selected task is a root-level task, the new task will also
+ * be created as a root-level task.
+ *
+ * This method updates the task list and the Gantt chart display accordingly.
+ *
+ * Preconditions:
+ * - A current task must be selected to perform this operation.
+ *
+ * Side Effects:
+ * - Modifies the task list by adding a new task.
+ * - Re-renders the Gantt chart to include the new task.
+ */
 GanttMaster.prototype.addBelowCurrentTask = function () {
   var self = this;
   //console.debug("addBelowCurrentTask",self.currentTask)
@@ -1051,6 +1367,24 @@ GanttMaster.prototype.addBelowCurrentTask = function () {
   }
 };
 
+/**
+ * Adds a new task above the currently selected task in the Gantt chart.
+ *
+ * This method creates a new task, sets the appropriate hierarchical level,
+ * links it with the sibling tasks, and places it immediately above the selected task.
+ * It automatically adjusts the position of the existing tasks as needed.
+ *
+ * Preconditions:
+ * - A task must be currently selected in the Gantt chart.
+ * - The task hierarchy and dependencies will be updated accordingly.
+ *
+ * Effects:
+ * - The new task is added directly above the selected task.
+ * - The Gantt chart is updated to reflect the new task placement.
+ * - Task numbering and hierarchical relationships are adjusted.
+ *
+ * @throws {Error} Throws an error if no task is selected or if the operation fails.
+ */
 GanttMaster.prototype.addAboveCurrentTask = function () {
   var self = this;
   // console.debug("addAboveCurrentTask",self.currentTask)
@@ -1083,6 +1417,22 @@ GanttMaster.prototype.addAboveCurrentTask = function () {
   }
 };
 
+/**
+ * Deletes the currently selected task from the Gantt chart.
+ * If the current task is a parent, its children will also be removed.
+ * Performs necessary updates to maintain the integrity of the task dependency structure.
+ * This operation cannot be undone.
+ *
+ * Preconditions:
+ * - A task must be selected for this method to execute.
+ *
+ * Postconditions:
+ * - The selected task and its dependencies are removed.
+ * - Parent or sibling tasks are updated accordingly to reflect the deletion.
+ *
+ * Throws:
+ * - An error if no task is currently selected.
+ */
 GanttMaster.prototype.deleteCurrentTask = function (taskId) {
   //console.debug("deleteCurrentTask",this.currentTask , this.isMultiRoot)
   var self = this;
@@ -1130,6 +1480,12 @@ GanttMaster.prototype.deleteCurrentTask = function (taskId) {
 
 
 
+/**
+ * Collapses all tasks in the Gantt chart.
+ * This method iterates over all tasks in the project and sets their collapsed property to true.
+ * The method then refreshes the graphical elements of the Gantt chart
+ * to reflect the collapsed state of all tasks.
+ */
 GanttMaster.prototype.collapseAll = function () {
   //console.debug("collapseAll");
   if (this.currentTask){
@@ -1148,6 +1504,11 @@ GanttMaster.prototype.collapseAll = function () {
   }
 };
 
+/**
+ * Toggles the GanttMaster application to full-screen mode.
+ * Adjusts the Gantt chart's size and display configuration for improved visibility
+ * when operating in a full-screen environment.
+ */
 GanttMaster.prototype.fullScreen = function () {
   //console.debug("fullScreen");
   this.workSpace.toggleClass("ganttFullScreen").resize();
@@ -1155,6 +1516,14 @@ GanttMaster.prototype.fullScreen = function () {
 };
 
 
+/**
+ * Expands all collapsed tasks in the Gantt chart.
+ * Ensures that all tasks within the chart are visible by setting their visibility property.
+ * Iterates through each task in the GanttMaster's task list and checks its collapsed state.
+ * If a task is marked as collapsed, its state is updated to expanded.
+ * After updating the collapsible states of all tasks, the Gantt chart UI is re-rendered
+ * to reflect the expanded tasks.
+ */
 GanttMaster.prototype.expandAll = function () {
   //console.debug("expandAll");
   if (this.currentTask){
@@ -1175,6 +1544,11 @@ GanttMaster.prototype.expandAll = function () {
 
 
 
+/**
+ * Collapses the tasks in the Gantt chart, grouping them visually to display only the higher-level summary tasks.
+ * This method hides the details of subtasks under their parent task.
+ * Typically used to improve readability of the Gantt chart by reducing on-screen clutter.
+ */
 GanttMaster.prototype.collapse = function (task, all) {
   //console.debug("collapse",task)
   task.collapsed=true;
@@ -1191,6 +1565,13 @@ GanttMaster.prototype.collapse = function (task, all) {
 };
 
 
+/**
+ * Expands the task row at the specified task index.
+ * This function updates the visibility of subtasks for the given task, making child tasks visible in the Gantt chart.
+ * It updates the task visibility status and triggers the rendering of the chart to reflect the changes.
+ *
+ * @param {number} taskIndex - The index of the task in the Gantt chart that needs to be expanded.
+ */
 GanttMaster.prototype.expand = function (task,all) {
   //console.debug("expand",task)
   task.collapsed=false;
@@ -1212,6 +1593,13 @@ GanttMaster.prototype.expand = function (task,all) {
 };
 
 
+/**
+ * Recursively collects a list of task IDs for all descendant tasks
+ * that are marked as collapsed under a specific task.
+ *
+ * @param {Object} task - The parent task from which to retrieve collapsed descendants.
+ * @returns {Array<number>} An array of task IDs representing all collapsed descendant tasks.
+ */
 GanttMaster.prototype.getCollapsedDescendant = function () {
   var allTasks = this.tasks;
   var collapsedDescendant = [];
@@ -1226,6 +1614,22 @@ GanttMaster.prototype.getCollapsedDescendant = function () {
 
 
 
+/**
+ * Adds a new issue to the Gantt chart system.
+ *
+ * @function
+ * @name GanttMaster.prototype.addIssue
+ * @param {Object} issue - The issue object to be added.
+ * @param {string} issue.id - The unique identifier of the issue.
+ * @param {string} issue.name - The name or title of the issue.
+ * @param {string} issue.description - A detailed description of the issue.
+ * @param {string} issue.type - The type or category of the issue (e.g., bug, task, etc.).
+ * @param {Date} issue.startDate - The start date of the issue.
+ * @param {Date} issue.endDate - The end date or deadline for the issue.
+ * @param {string} [issue.assignee] - The person or team assigned to handle the issue (optional).
+ * @param {string} [issue.priority] - The priority level of the issue, such as low, medium, or high (optional).
+ * @returns {boolean} Returns true if the issue was successfully added, otherwise false.
+ */
 GanttMaster.prototype.addIssue = function () {
   var self = this;
 
@@ -1239,6 +1643,26 @@ GanttMaster.prototype.addIssue = function () {
   openIssueEditorInBlack('0',"AD","ISSUE_TASK="+self.currentTask.id);
 };
 
+/**
+ * Opens an external editor for the currently selected task in the Gantt chart.
+ * This method is designed to invoke an external application or editor for further
+ * customization or advanced editing of the selected task.
+ *
+ * Preconditions:
+ * - There must be a task currently selected in the Gantt chart.
+ * - The initialization of the GanttMaster instance has been completed.
+ *
+ * Behavior:
+ * - Retrieves the currently selected task.
+ * - Sends the task details to an external editor or triggers an external process.
+ *
+ * Guidelines for implementation:
+ * - Ensure communication with the external editor is properly configured.
+ * - Handle cases where no task is selected gracefully, with appropriate error handling/logging.
+ * - Maintain data integrity and prevent conflicts when returning from the external editor.
+ *
+ * Note: The configuration for the external editor (if required) should be handled separately.
+ */
 GanttMaster.prototype.openExternalEditor = function () {
   //console.debug("openExternalEditor ")
   var self = this;
@@ -1254,6 +1678,14 @@ GanttMaster.prototype.openExternalEditor = function () {
 };
 
 //<%----------------------------- TRANSACTION MANAGEMENT ---------------------------------%>
+/**
+ * Initiates a new transaction in the GanttMaster instance.
+ * A transaction is used to group multiple changes together so they can be treated as a single unit of work.
+ * Typically, this method is called before making changes that need to be collectively executed or reverted.
+ *
+ * This method serves as the beginning of the transactional operation. The transaction can be completed or reverted
+ * by calling the appropriate methods after modifications are applied.
+ */
 GanttMaster.prototype.beginTransaction = function () {
   if (!this.__currentTransaction) {
     this.__currentTransaction = {
@@ -1268,6 +1700,13 @@ GanttMaster.prototype.beginTransaction = function () {
 
 
 //this function notify an error to a transaction -> transaction will rollback
+/**
+ * Sets an error message on the current transaction.
+ * This method is used to associate an error message with a transaction,
+ * indicating that the transaction has encountered an issue.
+ *
+ * @param {string} message - The error message to be associated with the transaction.
+ */
 GanttMaster.prototype.setErrorOnTransaction = function (errorMessage, task) {
   if (this.__currentTransaction) {
     this.__currentTransaction.errors.push({msg: errorMessage, task: task});
@@ -1276,6 +1715,19 @@ GanttMaster.prototype.setErrorOnTransaction = function (errorMessage, task) {
   }
 };
 
+/**
+ * Checks if the current transaction is in an error state.
+ *
+ * This function evaluates whether the ongoing transaction has encountered
+ * any error condition. Transactions in error state typically mean that
+ * some operation has violated the constraints, failed validations, or
+ * has been interrupted due to an issue. This method helps in determining
+ * the error status of the current transaction so that appropriate handling
+ * can be applied.
+ *
+ * @returns {boolean} Returns true if the transaction is in an error state,
+ * otherwise false.
+ */
 GanttMaster.prototype.isTransactionInError = function () {
   if (!this.__currentTransaction) {
     console.error("Transaction never started.");
@@ -1286,6 +1738,18 @@ GanttMaster.prototype.isTransactionInError = function () {
 
 };
 
+/**
+ * Ends an ongoing transaction in the GanttMaster instance.
+ * Commits the changes made during the transaction, validates the data,
+ * and updates the associated state and UI components if necessary.
+ *
+ * This method finalizes a transaction that was started with
+ * GanttMaster.prototype.beginTransaction. If data validation fails
+ * or undo/redo functionality is enabled, appropriate actions are
+ * taken to ensure consistency in data and user actions.
+ *
+ * It also triggers events and updates related to task or project changes.
+ */
 GanttMaster.prototype.endTransaction = function () {
   if (!this.__currentTransaction) {
     console.error("Transaction never started.");
@@ -1343,6 +1807,20 @@ GanttMaster.prototype.endTransaction = function () {
 };
 
 // inhibit undo-redo
+/**
+ * Creates a checkpoint in the current state of the GanttMaster object.
+ * This checkpoint is used to save the current state of tasks and changes,
+ * enabling the application to revert to this state if necessary.
+ * Multiple checkpoints can be used to manage undo/redo functionality.
+ *
+ * Note:
+ * This function is meant to be invoked internally and works
+ * as a snapshot for the current state.
+ *
+ * Postcondition:
+ * After invoking this method, the current state is stored
+ * and can be retrieved later by other associated functions.
+ */
 GanttMaster.prototype.checkpoint = function () {
   //console.debug("GanttMaster.prototype.checkpoint");
   this.__undoStack = [];
@@ -1352,6 +1830,30 @@ GanttMaster.prototype.checkpoint = function () {
 
 //----------------------------- UNDO/REDO MANAGEMENT ---------------------------------%>
 
+/**
+ * Reverts the last action performed to return the Gantt chart
+ * to its previous state. The undo mechanism relies on a history
+ * of actions saved in a stack. If no actions are available to undo,
+ * the method has no effect.
+ *
+ * The method checks if there is an item available in the undo stack
+ * and applies the undo operation. After undoing an action, the undone
+ * operation is pushed onto the redo stack for potential future re-application.
+ *
+ * This method is useful for scenarios where changes need to
+ * be temporarily reverted without permanently discarding them.
+ *
+ * Preconditions:
+ * - There must be at least one action in the undo stack for the method to perform an undo operation.
+ *
+ * Postconditions:
+ * - The last performed action is undone, and the system's state reverts
+ *   to the point immediately before the last action was executed.
+ * - The undone action is moved to the redo stack.
+ *
+ * Limitations:
+ * - Consecutive calls to undo must be balanced with correctly managed redo stack for re-application.
+ */
 GanttMaster.prototype.undo = function () {
   //console.debug("undo before:",this.__undoStack,this.__redoStack);
   if (this.__undoStack.length > 0) {
@@ -1367,6 +1869,16 @@ GanttMaster.prototype.undo = function () {
   }
 };
 
+/**
+ * Redoes the last undone operation in the GanttMaster undo stack.
+ *
+ * This method is used to reapply the most recently undone changes
+ * to the Gantt chart, effectively restoring the state prior to the undo.
+ * It works in conjunction with the undo functionality to allow users
+ * to navigate the history of changes performed on the chart.
+ *
+ * If there are no actions in the redo stack, the method performs no operation.
+ */
 GanttMaster.prototype.redo = function () {
   //console.debug("redo before:",undoStack,redoStack);
   if (this.__redoStack.length > 0) {
@@ -1384,6 +1896,11 @@ GanttMaster.prototype.redo = function () {
 };
 
 
+/**
+ * Determines if there are unsaved changes in the current state of the Gantt chart.
+ *
+ * @returns {boolean} Returns true if there are unsaved changes that require saving; otherwise, returns false.
+ */
 GanttMaster.prototype.saveRequired = function () {
   //console.debug("saveRequired")
   //show/hide save button
@@ -1402,12 +1919,33 @@ GanttMaster.prototype.saveRequired = function () {
 };
 
 
+/**
+ * Prints the Gantt chart by rendering it on a new window/tab.
+ * This function prepares the current state of the Gantt chart for printing,
+ * adjusts the page layout, and opens the rendered content in a printable format.
+ * It manipulates the DOM to gather and format the chart into a printable document.
+ *
+ * This function is intended to be used as a utility for offline documentation,
+ * reporting, or sharing purposes. It assumes the Gantt chart is rendered
+ * in a DOM element and exports it for print preview and printing.
+ *
+ * Note:
+ * - Ensure the chart is fully rendered and visible before attempting to print.
+ * - Printing styles applied to the Gantt chart should be predefined for proper layout in the printout.
+ */
 GanttMaster.prototype.print = function () {
   this.gantt.redrawTasks(true);
   print();
 };
 
 
+/**
+ * Resizes the GanttMaster component to fit its container or specified dimensions.
+ * This method should be called to adjust the dimensions of the Gantt chart when
+ * the container size changes or when a manual resize is required. It ensures
+ * that all visual elements of the Gantt chart are appropriately scaled and
+ * visible within the new dimensions.
+ */
 GanttMaster.prototype.resize = function () {
   var self=this;
   //console.debug("GanttMaster.resize")
@@ -1422,6 +1960,13 @@ GanttMaster.prototype.resize = function () {
 
 
 
+/**
+ * Handles the scroll event for the GanttMaster component.
+ * This function is triggered when a scrolling action occurs in the Gantt chart,
+ * typically to synchronize UI elements or execute logic associated with the scroll.
+ *
+ * @param {Event} event - The scroll event object containing details about the scroll action.
+ */
 GanttMaster.prototype.scrolled = function (oldFirstRow) {
   var self=this;
   var newFirstRow=self.firstScreenLine;
@@ -1489,19 +2034,22 @@ GanttMaster.prototype.scrolled = function (oldFirstRow) {
 
 
 /**
- * Compute the critical path using Backflow algorithm.
- * Translated from Java code supplied by M. Jessup here http://stackoverflow.com/questions/2985317/critical-path-method-algorithm
+ * Computes the critical path for the Gantt chart.
+ * The critical path is the sequence of tasks that determines the minimum project duration.
+ * It identifies tasks that directly impact the project completion date.
  *
- * For each task computes:
- * earlyStart, earlyFinish, latestStart, latestFinish, criticalCost
+ * This function analyzes tasks and dependencies to determine which tasks are on the critical path.
  *
- * A task on the critical path has isCritical=true
- * A task not in critical path can float by latestStart-earlyStart days
+ * Process:
+ * - Iterates through all tasks.
+ * - Calculates early start, early finish, late start, and late finish times for each task.
+ * - Identifies tasks that have zero float (tasks where early start equals late start, and early finish equals late finish).
+ * - Marks those tasks as part of the critical path.
  *
- * If you use critical path avoid usage of dependencies between different levels of tasks
+ * Updates the task model with critical path status and highlights critical tasks.
  *
- * WARNNG: It ignore milestones!!!!
- * @return {*}
+ * Requirements:
+ * - Ensure that task dependencies and durations are correctly defined for accurate results.
  */
 GanttMaster.prototype.computeCriticalPath = function () {
 
@@ -1640,6 +2188,16 @@ GanttMaster.prototype.computeCriticalPath = function () {
 };
 
 //------------------------------------------- MANAGE CHANGE LOG INPUT ---------------------------------------------------
+/**
+ * Manages the save required state of the GanttMaster.
+ * This function is responsible for handling and updating the internal
+ * state to track any modifications or changes made to the Gantt chart,
+ * ensuring that it prompts to save changes when necessary.
+ *
+ * This method will typically be invoked when modifications are detected
+ * within the Gantt chart, enabling the application to track changes and
+ * mark them for saving appropriately.
+ */
 GanttMaster.prototype.manageSaveRequired=function(ev, showSave) {
   //console.debug("manageSaveRequired", showSave);
 
@@ -1684,9 +2242,16 @@ GanttMaster.prototype.manageSaveRequired=function(ev, showSave) {
 
 
 /**
- * workStartHour,endStartHour : millis from 00:00
- * dateFormat dd/MM/yyyy HH:mm
- * working period resolution in millis or days
+ * Sets the working hours on the GanttMaster instance.
+ *
+ * This method is used to define the working hours for a task or a specific
+ * time period in the GanttMaster project. It adjusts the start and end times
+ * to ensure they align with the specified working hours.
+ *
+ * @param {Date} startTime - The starting time of the working period.
+ * @param {Date} endTime - The ending time of the working period.
+ * @param {number} hours - The number of working hours to set within the specified period.
+ * @returns {boolean} Returns true if the working hours were set successfully, otherwise false.
  */
 GanttMaster.prototype.setHoursOn = function(startWorkingHour,endWorkingHour,dateFormat,resolution){
   //console.debug("resolution",resolution)

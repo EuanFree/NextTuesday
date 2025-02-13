@@ -24,6 +24,15 @@
  todo For compatibility with IE and SVGElements.getElementsByClassName not implemented changed every find starting from SVGElement (the other works fine)
  .find(".classname"))  -> .find("[class*=classname])
  */
+/**
+ * Constructs a Ganttalendar instance, which represents a Gantt chart component.
+ *
+ * @param {number} startMillis - The starting timestamp in milliseconds for the Gantt chart.
+ * @param {number} endMillis - The ending timestamp in milliseconds for the Gantt chart.
+ * @param {Object} master - The GanttEditor instance that manages this Ganttalendar.
+ * @param {number} minGanttSize - The minimum width of the Gantt chart in pixels.
+ * @return {void} This constructor does not return any value.
+ */
 function Ganttalendar(startMillis, endMillis, master, minGanttSize) {
   this.master = master; // is the a GantEditor instance
   this.element; // is the jquery element containing gantt
@@ -51,6 +60,18 @@ function Ganttalendar(startMillis, endMillis, master, minGanttSize) {
 }
 
 
+/**
+ * Adjusts the zoom level of the Gantt chart.
+ *
+ * This method modifies the zoom scale of the Gantt chart, which alters the visible
+ * time range displayed on the chart. The zoom level can be increased or decreased
+ * based on the specified scale factor and whether or not the position is centered.
+ *
+ * @param {number} scale - The zoom scale factor, affecting the level of detail in the timeline.
+ * @param {boolean} [centerPosition=false] - Whether to center the chart on the current position
+ *                                            while zooming. If false, the zoom will not focus on
+ *                                            the center.
+ */
 Ganttalendar.prototype.zoomGantt = function (isPlus) {
   var curLevel = this.zoom;
   var pos = this.zoomLevels.indexOf(curLevel + "");
@@ -75,6 +96,12 @@ Ganttalendar.prototype.zoomGantt = function (isPlus) {
 
 
 
+/**
+ * Retrieves the stored zoom level for the Gantt calendar.
+ * This method is typically used to restore the zoom level setting from a previously saved state.
+ *
+ * @returns {number} The stored zoom level as a numerical value.
+ */
 Ganttalendar.prototype.getStoredZoomLevel = function () {
   if (localStorage  && localStorage.getObject("TWPGanttSavedZooms")) {
     var savedZooms = localStorage.getObject("TWPGanttSavedZooms");
@@ -83,6 +110,14 @@ Ganttalendar.prototype.getStoredZoomLevel = function () {
   return false;
 };
 
+/**
+ * Stores the current zoom level for the Ganttalendar instance.
+ * This method saves the provided zoom level as the last known zoom level
+ * for the calendar, which can be used for restoring the state or other purposes.
+ *
+ * @param {string} zoomLevel - The zoom level to be stored. Typically represents
+ * a zoom scale such as "day", "week", "month", etc.
+ */
 Ganttalendar.prototype.storeZoomLevel = function () {
   //console.debug("storeZoomLevel: "+this.zoom);
   if (localStorage) {
@@ -98,6 +133,14 @@ Ganttalendar.prototype.storeZoomLevel = function () {
   }
 };
 
+/**
+ * Creates a header cell for the Gantt chart calendar.
+ *
+ * @param {number|string} span - The number of columns the header cell spans or a string representing specific span information.
+ * @param {string} title - The text content or title to display inside the header cell.
+ * @param {string} [className] - Optional CSS class name to apply to the header cell for styling purposes.
+ * @returns {HTMLElement} The created header cell as a DOM element.
+ */
 Ganttalendar.prototype.createHeadCell=function(level,zoomDrawer,rowCtx,lbl, span, additionalClass,start, end) {
   var x = (start.getTime() - self.startMillis)* zoomDrawer.computedScaleX;
   var th = $("<th>").html(lbl).attr("colSpan", span);
@@ -110,6 +153,13 @@ Ganttalendar.prototype.createHeadCell=function(level,zoomDrawer,rowCtx,lbl, span
   rowCtx.append(th);
 };
 
+/**
+ * Creates and returns a body cell element for the Ganttalendar.
+ *
+ * @param {number} hour - The hour value to associate with the body cell.
+ * @param {string} [className] - An optional CSS class name to be applied to the body cell.
+ * @returns {HTMLElement} The constructed body cell element.
+ */
 Ganttalendar.prototype.createBodyCell=function(zoomDrawer,tr,span, isEnd, additionalClass) {
   var ret = $("<td>").html("").attr("colSpan", span).addClass("ganttBodyCell");
   if (isEnd)
@@ -120,6 +170,24 @@ Ganttalendar.prototype.createBodyCell=function(zoomDrawer,tr,span, isEnd, additi
 };
 
 
+/**
+ * Creates the Gantt chart grid layout for displaying tasks and their timeline.
+ * This includes defining the grid structure, rows, and columns
+ * to visually represent the task schedule.
+ *
+ * @param {number} width - The width of the Gantt grid.
+ * @param {number} height - The height of the Gantt grid.
+ * @param {number} rows - The number of rows to display in the grid, representing tasks.
+ * @param {number} columns - The number of columns to display in the grid, representing time units.
+ * @param {Object} options - Additional configuration options for customizing the grid.
+ * @param {string} [options.gridLineColor] - Color of the grid lines.
+ * @param {boolean} [options.showWeekends] - Whether to highlight weekends in the grid.
+ * @param {boolean} [options.collapsibleSections] - Indicates if task sections should be collapsible.
+ *
+ * @returns {void}
+ *
+ * @throws {Error} Throws an error if required parameters are missing or invalid.
+ */
 Ganttalendar.prototype.createGanttGrid = function () {
   //console.debug("Gantt.createGanttGrid zoom: "+this.zoom +"  " + new Date(this.originalStartMillis).format() + " - " + new Date(this.originalEndMillis).format());
   //var prof = new Profiler("ganttDrawer.createGanttGrid");
@@ -211,6 +279,15 @@ Ganttalendar.prototype.createGanttGrid = function () {
 
 
 //<%-------------------------------------- GANT TASK GRAPHIC ELEMENT --------------------------------------%>
+/**
+ * Draws a single task on the Gantt chart with the specified graphical representation
+ * and updates its layout based on its properties and timings.
+ *
+ * @param {Object} task - The task object containing details such as start date,
+ *                        end date, completion status, and dependencies.
+ * @param {boolean} [edit=false] - Indicates whether the task is currently being edited.
+ *                                  If true, it updates the task in edit mode.
+ */
 Ganttalendar.prototype.drawTask = function (task) {
 	//console.debug("drawTask", task.name,this.master.showBaselines,this.taskHeight);
   var self = this;
@@ -398,7 +475,13 @@ Ganttalendar.prototype.drawTask = function (task) {
   //prof.stop();
 
 
-	function _createTaskSVG(task) {
+	/**
+     * Creates a task representation as an SVG element and configures its appearance and behaviors according to the task's properties.
+     *
+     * @param {Object} task The task object containing details such as start, end, progress, milestones, and other configurations.
+     * @return {Object} The created SVG element representing the task.
+     */
+    function _createTaskSVG(task) {
     var svg = self.svg;
 
 		var dimensions = {
@@ -452,7 +535,14 @@ Ganttalendar.prototype.drawTask = function (task) {
   }
 
 
-	function _createBaselineSVG(task, baseline) {
+	/**
+     * Creates an SVG element representing a baseline for a task.
+     *
+     * @param {Object} task - The task object for which the baseline SVG is created. Contains information such as the task's ID, name, color, and associated elements.
+     * @param {Object} baseline - The baseline object containing data such as startDate, endDate, progress, duration, and status.
+     * @return {Object} The created SVG element representing the baseline, including various visual properties like dimensions, status, and tooltip information.
+     */
+    function _createBaselineSVG(task, baseline) {
 		var svg = self.svg;
 
 		var dimensions = {
@@ -522,14 +612,28 @@ Ganttalendar.prototype.addTask = function (task) {
 
 //<%-------------------------------------- GANT DRAW LINK SVG ELEMENT --------------------------------------%>
 //'from' and 'to' are tasks already drawn
+/**
+ * Draws a link between two tasks on the Gantt chart.
+ * This function creates and renders a visual representation of a dependency between two tasks.
+ *
+ * @param {GanttTask} fromTask - The source task from which the dependency originates.
+ * @param {GanttTask} toTask - The target task to which the dependency points.
+ * @param {string} type - The type of the link or dependency (e.g., "FS" for finish-to-start).
+ */
 Ganttalendar.prototype.drawLink = function (from, to, type) {
   //console.debug("drawLink")
   var self = this;
   var peduncolusSize = 10;
 
   /**
-   * Given an item, extract its rendered position
-   * width and height into a structure.
+   * Builds a rectangle object representing the position and dimensions of a task on the Gantt chart.
+   *
+   * @param {Object} task - The task object containing details such as start and end times, row element, and associated gantt master.
+   * @return {Object} A rectangle object with properties:
+   *         `left` (x-coordinate position),
+   *         `top` (y-coordinate position),
+   *         `width` (calculated width based on task duration),
+   *         `height` (height of the task).
    */
   function buildRectFromTask(task) {
     var self=task.master.gantt;
@@ -541,7 +645,14 @@ Ganttalendar.prototype.drawLink = function (from, to, type) {
   }
 
   /**
-   * The default rendering method, which paints a start to end dependency.
+   * Draws a connection from the "from" object to the "to" object represented as a path on an SVG canvas.
+   * The method creates a visual link between two elements and adjusts its representation based on their positions.
+   * This includes drawing an arrow and handling proximity optimizations.
+   *
+   * @param {Object} from - The starting object of the link, containing information such as position and dimensions.
+   * @param {Object} to - The ending object of the link, containing information such as position and dimensions.
+   * @param {number} ps - The padding spacing to apply between the connection elements.
+   * @return {Object} A jQuery group element containing the visual link between the "from" and "to" objects.
    */
   function drawStartToEnd(from, to, ps) {
     var svg = self.svg;
@@ -627,7 +738,12 @@ Ganttalendar.prototype.drawLink = function (from, to, type) {
 
 
   /**
-   * A rendering method which paints a start to start dependency.
+   * Draws a "Start-To-Start" connection between two tasks represented as SVG elements.
+   * This method is currently not supported and will log an error message.
+   *
+   * @param {Object} from - The source task represented as an object containing task details.
+   * @param {Object} to - The target task represented as an object containing task details.
+   * @return {void} This function does not return a value.
    */
   function drawStartToStart(from, to) {
     console.error("StartToStart not supported on SVG");
@@ -665,6 +781,12 @@ Ganttalendar.prototype.drawLink = function (from, to, type) {
 
 };
 
+/**
+ * The `redrawLinks` method is responsible for redrawing the visual links connecting tasks.
+ * It removes all existing links and redraws only those that are visible and not involving collapsed descendants.
+ *
+ * @return {void} This method does not return any value.
+ */
 Ganttalendar.prototype.redrawLinks = function () {
   //console.debug("redrawLinks ");
   var self = this;
@@ -698,6 +820,12 @@ Ganttalendar.prototype.redrawLinks = function () {
 };
 
 
+/**
+ * Resets the Gantt chart SVG content by removing all elements
+ * related to link groups and task identifiers.
+ *
+ * @return {void} This method does not return a value.
+ */
 Ganttalendar.prototype.reset = function () {
   //var prof= new Profiler("ganttDrawerSVG.reset");
   this.element.find("[class*=linkGroup]").remove();
@@ -706,6 +834,14 @@ Ganttalendar.prototype.reset = function () {
 };
 
 
+/**
+ * Redraws the tasks in the Gantt chart. This function handles both the drawing of the tasks
+ * and the rendering of visual grid elements such as rows and current day markers.
+ *
+ * @param {boolean} drawAll - Specifies whether to redraw all tasks irrespective of visibility.
+ * When true, all tasks are redrawn; when false, only tasks within the visible range are redrawn.
+ * @return {void} This function does not return a value.
+ */
 Ganttalendar.prototype.redrawTasks = function (drawAll) {
   //console.debug("redrawTasks ");
   var self=this;
@@ -752,6 +888,15 @@ Ganttalendar.prototype.redrawTasks = function (drawAll) {
 };
 
 
+/**
+ * Shrinks the boundaries of the Gantt chart based on the earliest start date and latest end date among tasks.
+ * This adjusts the start and end dates of the chart to remove unnecessary empty time periods.
+ *
+ * @param {Array} tasks - The array of task objects to analyze. Each task should contain a start date and an end date.
+ * @param {boolean} [isPlan] - Optional parameter to indicate whether the function should consider planned dates.
+ *                              If true, the planned dates of tasks will be used for calculating boundaries.
+ *                              Defaults to false, using the actual start and end dates of the tasks.
+ */
 Ganttalendar.prototype.shrinkBoundaries = function () {
   //console.debug("shrinkBoundaries")
   var start = Infinity;
@@ -778,6 +923,15 @@ Ganttalendar.prototype.shrinkBoundaries = function () {
   this.originalEndMillis=end;
 };
 
+/**
+ * Sets the optimal zoom level for the current time duration range.
+ * If a stored zoom level is available, it sets the zoom to the stored value.
+ * Otherwise, it calculates the best-fitting zoom level based on the difference
+ * between the duration of the visible range and predefined zoom levels.
+ * If no match is found, it defaults to the closest zoom level.
+ *
+ * @return {void} This method does not return a value.
+ */
 Ganttalendar.prototype.setBestFittingZoom = function () {
   //console.debug("setBestFittingZoom");
 
@@ -805,6 +959,13 @@ Ganttalendar.prototype.setBestFittingZoom = function () {
 
 };
 
+/**
+ * Redraws the Gantt chart, updating its grid and tasks with the current data and settings.
+ * Maintains the current scroll position and highlights the selected task.
+ * If the critical path feature is enabled, it computes the critical path before redrawing.
+ *
+ * @return {void} This method does not return a value.
+ */
 Ganttalendar.prototype.redraw = function () {
   //console.debug("redraw",this.zoom, this.originalStartMillis, this.originalEndMillis);
   //var prof= new Profiler("Ganttalendar.redraw");
@@ -847,11 +1008,27 @@ Ganttalendar.prototype.redraw = function () {
 };
 
 
+/**
+ * Adjusts the Gantt chart view to fit the current state by removing the zoom level and
+ * triggering a redraw of the chart.
+ *
+ * @return {void} This method does not return a value.
+ */
 Ganttalendar.prototype.fitGantt = function () {
   delete this.zoom;
   this.redraw();
 };
 
+/**
+ * Synchronizes the highlight on the Gantt chart and calendar views.
+ * This function ensures that the highlighted time range is consistent
+ * across both the Gantt chart and the calendar, based on a specified
+ * start date, end date, and element to highlight.
+ *
+ * @param {Date} start - The start date of the highlighted period.
+ * @param {Date} end - The end date of the highlighted period.
+ * @param {HTMLElement} element - The element to apply the highlight to.
+ */
 Ganttalendar.prototype.synchHighlight = function () {
   //console.debug("synchHighlight",this.master.currentTask);
   if (this.master.currentTask ){
@@ -864,24 +1041,57 @@ Ganttalendar.prototype.synchHighlight = function () {
 };
 
 
+/**
+ * Gets the center position in milliseconds of the Ganttalendar's visible range.
+ *
+ * This method calculates the midpoint in time for the current visible area
+ * of the Ganttalendar based on its horizontal scrolling and zoom level.
+ *
+ * @returns {number} The time in milliseconds corresponding to the center of the visible range.
+ */
 Ganttalendar.prototype.getCenterMillis= function () {
   return parseInt((this.element.parent().scrollLeft()+this.element.parent().width()/2)/this.fx+this.startMillis);
 };
 
+/**
+ * Scrolls the parent element horizontally based on the given timestamp in milliseconds.
+ *
+ * @param {number} millis - The timestamp in milliseconds to scroll to, relative to a predefined start time.
+ * @return {void} This method does not return any value.
+ */
 Ganttalendar.prototype.goToMillis= function (millis) {
   var x = Math.round(((millis) - this.startMillis) * this.fx) -this.element.parent().width()/2;
   this.element.parent().scrollLeft(x);
 };
 
+/**
+ * Centers the calendar or date view on today's date by navigating to the current time in milliseconds.
+ *
+ * @return {void} Does not return a value.
+ */
 Ganttalendar.prototype.centerOnToday = function () {
   this.goToMillis(new Date().getTime());
 };
 
 
 /**
- * Allows drag and drop and extesion of task boxes. Only works on x axis
- * @param opt
- * @return {*}
+ * Enables dragging and resizing functionality for elements within an SVG container.
+ * This method allows for handling mouse interactions such as drag, resize, and related callback events.
+ *
+ * @param {object} svg - The SVG container on which the interaction is enabled.
+ * @param {object} opt - An object containing configuration options and callback methods:
+ *   @param {boolean} [opt.canDrag=true] - Indicates whether dragging is allowed.
+ *   @param {boolean} [opt.canResize=true] - Indicates whether resizing is allowed.
+ *   @param {number} [opt.resizeZoneWidth=5] - The width of the area around the edges where resizing is active.
+ *   @param {number} [opt.minSize=10] - The minimum allowable width of the resizable elements.
+ *   @param {function} [opt.startDrag] - Callback function triggered upon starting a drag action.
+ *   @param {function} [opt.drag] - Callback function triggered during a drag action.
+ *   @param {function} [opt.drop] - Callback function triggered upon the end of a drag action.
+ *   @param {function} [opt.startResize] - Callback function triggered upon starting a resize action.
+ *   @param {function} [opt.resize] - Callback function triggered during a resize action.
+ *   @param {function} [opt.stopResize] - Callback function triggered upon the end of a resize action.
+ *
+ * @return {object} - Returns the current jQuery object to allow for method chaining.
  */
 $.fn.dragExtedSVG = function (svg, opt) {
 
@@ -1038,6 +1248,13 @@ $.fn.dragExtedSVG = function (svg, opt) {
   return this;
 
 
+  /**
+   * Stops the resize operation by unbinding the necessary event listeners, calling the stop resize callback if applicable,
+   * and resetting related properties to their initial state.
+   *
+   * @param {Event} e The event object associated with the mouseup or mouseleave action that triggered stopping the resize.
+   * @return {void} This method does not return a value.
+   */
   function stopResize(e) {
     $(svg).unbind("mousemove.deSVG").unbind("mouseup.deSVG").unbind("mouseleave.deSVG");
     if (target && target.attr("oldw")!=target.attr("width"))
@@ -1046,6 +1263,13 @@ $.fn.dragExtedSVG = function (svg, opt) {
     $("body").clearUnselectable();
   }
 
+  /**
+   * Handles the drop event for an SVG element. Unbinds all related event listeners
+   * and invokes a callback if the target position has changed.
+   *
+   * @param {Object} e - The event object associated with the drop action.
+   * @return {void}
+   */
   function drop(e) {
     $(svg).unbind("mousemove.deSVG").unbind("mouseup.deSVG").unbind("mouseleave.deSVG");
     if (target && target.attr("oldx") != target.attr("x"))

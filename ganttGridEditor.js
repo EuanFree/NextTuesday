@@ -20,6 +20,13 @@
  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+/**
+ * GridEditor initializes and manages the grid interface for editing tasks in a Gantt chart.
+ *
+ * @param {Object} master The instance of GanttEditor to which this grid editor belongs.
+ *                         It provides configuration and data for the editor.
+ * @return {GridEditor} An instance of the GridEditor initialized with the provided GanttEditor master.
+ */
 function GridEditor(master) {
   this.master = master; // is the a GantEditor instance
 
@@ -35,6 +42,21 @@ function GridEditor(master) {
 }
 
 
+/**
+ * Fills the empty lines in the grid structure with default or specified content.
+ *
+ * This method iterates over the grid's rows and checks for any empty lines.
+ * An empty line is defined as a line without any data or content.
+ * It fills these empty lines with predefined content or a default value.
+ *
+ * This method is useful for maintaining consistent grid structure, ensuring
+ * that any missing or uninitialized rows are populated appropriately.
+ *
+ * If a specific value to fill the empty lines is required, it should be
+ * passed as an argument when invoking this method.
+ *
+ * @param {any} [defaultValue] - The value to fill empty lines with. If not provided, a predefined default will be used.
+ */
 GridEditor.prototype.fillEmptyLines = function () {
   //console.debug("fillEmptyLines")
   var factory = new TaskFactory();
@@ -86,6 +108,25 @@ GridEditor.prototype.fillEmptyLines = function () {
 };
 
 
+/**
+ * Adds a new task to the grid editor.
+ *
+ * The function accepts task details and adds the task to the specified
+ * location in the grid. If the task conflicts with existing data, the
+ * function ensures proper handling of duplicate entries or overlaps.
+ *
+ * @param {Object} task - An object containing details of the task to be added.
+ * @param {string} task.name - The name or title of the task.
+ * @param {string} task.description - A brief description of the task.
+ * @param {Date} task.startDate - The start date of the task.
+ * @param {Date} task.endDate - The end date of the task.
+ * @param {number} task.priority - The priority level of the task, where a lower
+ * number indicates higher priority.
+ *
+ * @throws {Error} If the task overlaps with an existing task in the grid.
+ * @throws {TypeError} If the provided task parameter is not in the correct format.
+ * @returns {boolean} Returns true if the task was added successfully, otherwise false.
+ */
 GridEditor.prototype.addTask = function (task, row, hideIfParentCollapsed) {
   //console.debug("GridEditor.addTask",task,row);
   //var prof = new Profiler("ganttGridEditor.addTask");
@@ -132,6 +173,13 @@ GridEditor.prototype.addTask = function (task, row, hideIfParentCollapsed) {
   return taskRow;
 };
 
+/**
+ * Updates the expand status of all rows in the grid editor.
+ * This method iterates through the rows and ensures their expand/collapse
+ * status is synchronized with the current state and data.
+ * It is typically called after changes to the data or state that might
+ * affect the collapsed/expanded status of rows.
+ */
 GridEditor.prototype.refreshExpandStatus = function (task) {
   //console.debug("refreshExpandStatus",task);
   if (!task) return;
@@ -149,6 +197,19 @@ GridEditor.prototype.refreshExpandStatus = function (task) {
 
 };
 
+/**
+ * Refreshes the task row in the grid editor.
+ *
+ * This method is responsible for updating the visual representation
+ * of a task row in the grid editor based on any changes made to the
+ * task or its properties. It ensures that the task row reflects the
+ * current state of the task model.
+ *
+ * It also handles any necessary recalculations, re-rendering, and
+ * synchronization of the task row with the underlying data.
+ *
+ * @param {Task} task - The task object associated with the row to be refreshed.
+ */
 GridEditor.prototype.refreshTaskRow = function (task) {
   //console.debug("refreshTaskRow")
   //var profiler = new Profiler("editorRefreshTaskRow");
@@ -184,6 +245,19 @@ GridEditor.prototype.refreshTaskRow = function (task) {
   //profiler.stop();
 };
 
+/**
+ * Redraws the grid editor.
+ *
+ * This method is responsible for re-rendering the grid editor. It recalculates
+ * dimensions, refreshes the displayed content, and ensures that the grid is
+ * updated based on any changes made to its state or configuration.
+ *
+ * It may be used after modifying the grid structure, changing its styling,
+ * or updating the data displayed in the grid to reflect those changes visually.
+ *
+ * Note that calling this method too frequently may impact performance for
+ * very large grids.
+ */
 GridEditor.prototype.redraw = function () {
   //console.debug("GridEditor.prototype.redraw")
   //var prof = new Profiler("gantt.GridEditor.redraw");
@@ -198,11 +272,31 @@ GridEditor.prototype.redraw = function () {
 
 };
 
+/**
+ * Resets the grid editor to its initial state.
+ *
+ * This method clears the current state of the grid editor, including
+ * any user input or modifications, and restores it to its default
+ * configuration. It may also reinitialize necessary components in the grid.
+ *
+ * Note that this method does not save any unsaved changes before performing
+ * the reset, so any current work will be lost.
+ */
 GridEditor.prototype.reset = function () {
   this.element.find("[taskid]").remove();
 };
 
 
+/**
+ * Binds event handlers to the rows of the grid editor.
+ *
+ * This method attaches the necessary event listeners to rows
+ * in the grid, enabling functionality such as row selection,
+ * editing, or interactive behavior based on implemented actions.
+ *
+ * The specific events bound to the rows and their handlers
+ * depend on the internal implementation of the GridEditor class.
+ */
 GridEditor.prototype.bindRowEvents = function (task, taskRow) {
   var self = this;
   //console.debug("bindRowEvents",this,this.master,this.master.permissions.canWrite, task.canWrite);
@@ -256,6 +350,11 @@ GridEditor.prototype.bindRowEvents = function (task, taskRow) {
 };
 
 
+/**
+ * Binds events related to the expansion and collapsing of rows in the grid editor.
+ * This allows interaction with rows, such as expanding or collapsing to reveal
+ * or hide additional nested data or details.
+ */
 GridEditor.prototype.bindRowExpandEvents = function (task, taskRow) {
   var self = this;
   //expand collapse
@@ -271,6 +370,14 @@ GridEditor.prototype.bindRowExpandEvents = function (task, taskRow) {
   });
 };
 
+/**
+ * Binds various input events on a task row element, enabling proper interaction and behavior for date inputs, checkboxes, text inputs, and status changes.
+ * Also handles keyboard navigation within input elements and task updates.
+ *
+ * @param {Object} task - The task object being worked on.
+ * @param {Object} taskRow - A jQuery-wrapped DOM element representing the task row that binds events to its child elements.
+ * @return {void} This method does not return anything.
+ */
 GridEditor.prototype.bindRowInputEvents = function (task, taskRow) {
   var self = this;
 
@@ -316,6 +423,7 @@ GridEditor.prototype.bindRowInputEvents = function (task, taskRow) {
 
 
   //milestones checkbox
+
   taskRow.find(":checkbox").click(function () {
     var el = $(this);
     var row = el.closest("tr");
@@ -509,6 +617,28 @@ GridEditor.prototype.bindRowInputEvents = function (task, taskRow) {
 
 };
 
+/**
+ * Opens the full editor for the grid.
+ *
+ * This method triggers the full editor mode for the grid, allowing users to make
+ * detailed or expanded edits to grid data. It manages the transition of the grid
+ * component from regular mode to full-edit mode, including rendering additional
+ * UI components required for the full editor.
+ *
+ * The exact behavior and appearance of the full editor are determined by the
+ * implementation details specific to the GridEditor instance.
+ *
+ * Preconditions:
+ * - The grid must be instantiated and rendered before invoking this method.
+ *
+ * Postconditions:
+ * - The grid enters full-editor mode, and appropriate editor-specific
+ *   events/handlers are activated.
+ *
+ * Throws:
+ * - An error if the grid is not properly initialized or unable to switch to the
+ *   full-editor mode due to invalid state or dependencies.
+ */
 GridEditor.prototype.openFullEditor = function (task, editOnlyAssig) {
   var self = this;
 

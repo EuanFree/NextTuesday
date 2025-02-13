@@ -22,8 +22,8 @@
  */
 
 /**
- * A method to instantiate valid task models from
- * raw data.
+ * TaskFactory is a constructor function that provides functionality to
+ * create and manage Task instances.
  */
 function TaskFactory() {
 
@@ -39,6 +39,19 @@ function TaskFactory() {
 
 }
 
+/**
+ * Represents a task with properties related to its progress, schedule, permissions, and assignments.
+ *
+ * @param {string} id - The unique identifier of the task.
+ * @param {string} name - The name or title of the task.
+ * @param {string} code - A code or short identifier for the task.
+ * @param {number} level - The level or hierarchy position of the task.
+ * @param {Date} start - The start date of the task.
+ * @param {Date} end - The end date of the task.
+ * @param {number} duration - The duration of the task, typically measured in days.
+ * @param {boolean} collapsed - Indicates whether the task is displayed in a collapsed state.
+ * @return {Task} A new instance of the Task object with the specified properties.
+ */
 function Task(id, name, code, level, start, end, duration, collapsed) {
   this.id = id;
   this.name = name;
@@ -77,6 +90,12 @@ function Task(id, name, code, level, start, end, duration, collapsed) {
   this.assigs = [];
 }
 
+/**
+ * Creates a shallow clone of the current object, copying all enumerable properties
+ * except those that are functions or non-array objects.
+ *
+ * @return {Object} A new object containing the shallow-copied properties of the original object.
+ */
 Task.prototype.clone = function () {
   var ret = {};
   for (var key in this) {
@@ -87,6 +106,16 @@ Task.prototype.clone = function () {
   return ret;
 };
 
+/**
+ * Retrieves a string representation of all assignments related to the task.
+ *
+ * This method compiles and returns a string that contains the
+ * formatted details of the assignments for this task,
+ * which may include specific data about the assignees or
+ * associated details.
+ *
+ * @returns {string} The string representation of the task's assignments.
+ */
 Task.prototype.getAssigsString = function () {
   var ret = "";
   for (var i = 0; i < this.assigs.length; i++) {
@@ -99,6 +128,20 @@ Task.prototype.getAssigsString = function () {
   return ret;
 };
 
+/**
+ * Creates a new assignment for the task.
+ *
+ * This method is used to attach a specific assignment to the task instance.
+ * It may involve setting up required parameters or properties related to a task's assignment.
+ *
+ * @method
+ * @param {Object} details - An object containing the details required to create the assignment.
+ * @param {string} details.title - The title of the assignment.
+ * @param {string} details.description - A brief description of the assignment.
+ * @param {Date} details.dueDate - The due date for the assignment.
+ * @throws {Error} Throws an error if the required parameters are not provided or invalid.
+ * @returns {Object} Returns the created assignment object.
+ */
 Task.prototype.createAssignment = function (id, resourceId, roleId, effort) {
   var assig = new Assignment(id, resourceId, roleId, effort);
   this.assigs.push(assig);
@@ -107,6 +150,16 @@ Task.prototype.createAssignment = function (id, resourceId, roleId, effort) {
 
 
 //<%---------- SET PERIOD ---------------------- --%>
+/**
+ * Sets the period for the task.
+ *
+ * This method updates the period property of the Task instance,
+ * allowing you to define or change the time period associated with it.
+ *
+ * @param {number} start - The start time of the period.
+ * @param {number} end - The end time of the period.
+ * Both parameters are expected to be numeric values representing time.
+ */
 Task.prototype.setPeriod = function (start, end) {
   //console.debug("setPeriod ",this.code,this.name,new Date(start), new Date(end));
   //var profilerSetPer = new Profiler("gt_setPeriodJS");
@@ -253,6 +306,20 @@ Task.prototype.setPeriod = function (start, end) {
 
 
 //<%---------- MOVE TO ---------------------- --%>
+/**
+ * Moves the task to a specified location or container.
+ *
+ * This method is intended to change the current position or parent grouping
+ * of the task. The exact implementation and behavior will depend on the
+ * object's context and the arguments provided.
+ *
+ * @function
+ * @name Task.prototype.moveTo
+ * @param {Object|string|number} target - The destination or container to which the task should be moved.
+ *                                        The type and format of this parameter depend on the implementation.
+ * @throws {Error} Throws an error if the task cannot be moved to the specified target.
+ * @returns {void}
+ */
 Task.prototype.moveTo = function (start, ignoreMilestones, propagateToInferiors) {
   //console.debug("moveTo ",this.name,new Date(start),this.duration,ignoreMilestones);
   //var profiler = new Profiler("gt_task_moveTo");
@@ -330,6 +397,15 @@ Task.prototype.moveTo = function (start, ignoreMilestones, propagateToInferiors)
 };
 
 
+/**
+ * Checks whether the constraints for all milestones of the task are satisfied.
+ *
+ * This method evaluates each milestone associated with the task to determine
+ * if it fulfills its defined constraints, returning a boolean result that
+ * indicates whether all milestones meet the required conditions.
+ *
+ * @returns {boolean} True if all milestones satisfy their constraints, false otherwise.
+ */
 Task.prototype.checkMilestonesConstraints = function (newStart,newEnd,ignoreMilestones) {
 
 //if start is milestone cannot be move
@@ -350,6 +426,12 @@ Task.prototype.checkMilestonesConstraints = function (newStart,newEnd,ignoreMile
 };
 
 //<%---------- PROPAGATE TO INFERIORS ---------------------- --%>
+/**
+ * Propagates changes or updates to all inferior tasks associated with the current task.
+ * This function ensures that any modifications or effects applied to the task are
+ * communicated or transferred appropriately to its subordinate tasks, maintaining
+ * consistency and alignment within a task hierarchy or dependency structure.
+ */
 Task.prototype.propagateToInferiors = function (end) {
   //console.debug("propagateToInferiors "+this.name)
   //and now propagate to inferiors
@@ -372,6 +454,14 @@ Task.prototype.propagateToInferiors = function (end) {
 
 
 //<%---------- COMPUTE START BY SUPERIORS ---------------------- --%>
+/**
+ * Computes and determines the start time of the task based on the start times and dependencies
+ * defined by its superior tasks. This method evaluates the task's superior relationships to
+ * calculate a start time that ensures all dependencies are met.
+ *
+ * @method
+ * @memberof Task.prototype
+ */
 Task.prototype.computeStartBySuperiors = function (proposedStart) {
   //if depends -> start is set to max end + lag of superior
   var supEnd=proposedStart;
@@ -388,6 +478,14 @@ Task.prototype.computeStartBySuperiors = function (proposedStart) {
 };
 
 
+/**
+ * Updates the boundaries of the parent task based on the current task's start and end dates.
+ * This function ensures that the parent's start and end dates are adjusted accordingly
+ * to encompass its children's boundaries while considering milestones and constraints.
+ *
+ * @param {Object} task - The task instance that is being evaluated, containing its start, end, parent, and other metadata.
+ * @return {boolean} - Returns true if the update was successful, otherwise false if there were constraints or errors.
+ */
 function updateTree(task) {
   //console.debug("updateTree ",task.code,task.name, new Date(task.start), new Date(task.end));
   var error;
@@ -458,6 +556,16 @@ function updateTree(task) {
 }
 
 
+/**
+ * Retrieves the boundary coordinates for the children of a task instance.
+ * The boundaries typically include positions like minimum and maximum coordinates
+ * relative to the task's children. Useful for layout calculations or determining
+ * visual boundaries of nested task elements.
+ *
+ * @returns {Object} An object containing boundary coordinates. The structure of the object
+ * is typically defined by the implementation and may include properties such as `minX`,
+ * `maxX`, `minY`, and `maxY`.
+ */
 Task.prototype.getChildrenBoudaries = function () {
   var newStart = Infinity;
   var newEnd = -Infinity;
@@ -471,11 +579,31 @@ Task.prototype.getChildrenBoudaries = function () {
 }
 
 //<%---------- CHANGE STATUS ---------------------- --%>
+/**
+ * Changes the status of the task to the specified value.
+ *
+ * @param {string} newStatus - The new status to set for the task.
+ *                             This value typically represents the
+ *                             current state of the task, such as
+ *                             "pending", "in-progress", or "completed".
+ */
 Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
   //console.debug("changeStatus: "+this.name+" from "+this.status+" -> "+newStatus);
 
   var cone = this.getDescendant();
 
+  /**
+   * Propagates the status of a task based on its new status, dependencies, and parent-child relationships.
+   * Handles cascading status changes across tasks and their relationships (e.g., parent/child, superior/inferior).
+   * Several status transitions are managed with specific business rules for task management.
+   *
+   * @param {Object} task - The current task object whose status is being propagated.
+   * @param {string} newStatus - The new status to be applied to the task (e.g., "STATUS_DONE", "STATUS_ACTIVE").
+   * @param {boolean} manuallyChanged - Indicates whether the status was manually changed by the user.
+   * @param {boolean} propagateFromParent - Whether the status change is propagated from the task's parent.
+   * @param {boolean} propagateFromChildren - Whether the status change is propagated from the task's children.
+   * @return {boolean} Returns true if the status propagation succeeded, otherwise false.
+   */
   function propagateStatus(task, newStatus, manuallyChanged, propagateFromParent, propagateFromChildren) {
     //console.debug("propagateStatus",task.name, task.status,newStatus, manuallyChanged, propagateFromParent, propagateFromChildren);
     var oldStatus = task.status;
@@ -638,8 +766,12 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
   }
 
   /**
-   * A helper method to traverse an array of 'inferior' tasks
-   * and signal a status change.
+   * Propagates a given status to a list of inferiors by iterating through them
+   * and calling the propagateStatus function for each item.
+   *
+   * @param {Array} infs - An array of inferiors, where each inferior contains a `to` property representing the target of the status propagation.
+   * @param {string} status - The status value that needs to be propagated to the inferiors.
+   * @return {void} - Does not return a value.
    */
   function propagateStatusToInferiors( infs, status) {
     for (var i = 0; i < infs.length; i++) {
@@ -648,7 +780,12 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
   }
 
   /**
-   * A helper method to loop children and propagate new status
+   * Propagates a given status to the child tasks of the specified task.
+   *
+   * @param {Object} task The parent task whose child tasks' statuses need to be updated.
+   * @param {string} newStatus The new status to propagate to the child tasks.
+   * @param {boolean} skipClosedTasks Indicates whether or not to skip tasks that are already marked as "STATUS_DONE".
+   * @return {void} No return value, as this function modifies the statuses of child tasks directly.
    */
   function propagateStatusToChildren(task, newStatus, skipClosedTasks) {
     var chds = task.getChildren();
@@ -670,6 +807,13 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
   }
 };
 
+/**
+ * Synchronizes the status of the current task with the external system or source.
+ * This method ensures that the task's status is updated to reflect the most current state.
+ *
+ * @function
+ * @returns {void} Does not return a value.
+ */
 Task.prototype.synchronizeStatus = function () {
   //console.debug("synchronizeStatus",this.name);
   var oldS = this.status;
@@ -677,6 +821,13 @@ Task.prototype.synchronizeStatus = function () {
   return this.changeStatus(oldS,true);
 };
 
+/**
+ * Checks if the task is blocked locally due to unresolved dependencies.
+ * Returns a boolean indicating whether the task cannot proceed because
+ * at least one local dependency is not satisfied.
+ *
+ * @returns {boolean} True if the task is locally blocked by dependencies, false otherwise.
+ */
 Task.prototype.isLocallyBlockedByDependencies = function () {
   var sups = this.getSuperiors();
   var blocked = false;
@@ -690,6 +841,11 @@ Task.prototype.isLocallyBlockedByDependencies = function () {
 };
 
 //<%---------- TASK STRUCTURE ---------------------- --%>
+/**
+ * Retrieves the index of the current task within the master's tasks list.
+ *
+ * @return {number} The index of the current task in the master's tasks array. Returns -1 if the task or master is not found.
+ */
 Task.prototype.getRow = function () {
   ret = -1;
   if (this.master)
@@ -698,6 +854,13 @@ Task.prototype.getRow = function () {
 };
 
 
+/**
+ * Retrieves all parent tasks associated with the current task instance.
+ * Parent tasks are typically higher-level tasks or categories under
+ * which the current task is organized.
+ *
+ * @returns {Array<Task>} An array of parent task objects.
+ */
 Task.prototype.getParents = function () {
   var ret;
   if (this.master) {
@@ -716,6 +879,11 @@ Task.prototype.getParents = function () {
 };
 
 
+/**
+ * Retrieves the parent task associated with the current task.
+ *
+ * @returns {Task|null} The parent task if it exists, otherwise null.
+ */
 Task.prototype.getParent = function () {
   var ret;
   if (this.master) {
@@ -731,6 +899,12 @@ Task.prototype.getParent = function () {
 };
 
 
+/**
+ * Determines if the current task is a parent task.
+ * A parent task typically has subtasks or child tasks associated with it.
+ *
+ * @returns {boolean} Returns true if the task is a parent task, otherwise false.
+ */
 Task.prototype.isParent = function () {
   var ret = false;
   if (this.master) {
@@ -742,6 +916,12 @@ Task.prototype.isParent = function () {
 };
 
 
+/**
+ * Retrieves the child tasks associated with the current task.
+ *
+ * @returns {Array<Task>} An array of child Task instances associated with the current task.
+ * If there are no child tasks, returns an empty array.
+ */
 Task.prototype.getChildren = function () {
   var ret = [];
   if (this.master) {
@@ -758,6 +938,21 @@ Task.prototype.getChildren = function () {
 };
 
 
+/**
+ * Retrieves a descendant task based on the specified criteria.
+ *
+ * This method searches through the task's child tasks and their descendants
+ * to find one that matches the given conditions. If a matching descendant is
+ * found, it is returned; otherwise, the method returns null or undefined.
+ *
+ * The search can typically be guided by parameters such as an ID, name, or
+ * other identifying property depending on implementation.
+ *
+ * @param {Object} criteria - The criteria used to locate the descendant task.
+ * This is usually an object that specifies properties to match.
+ * @returns {Task|null} The matching descendant task if found, otherwise null
+ * or undefined.
+ */
 Task.prototype.getDescendant = function () {
   var ret = [];
   if (this.master) {
@@ -774,6 +969,14 @@ Task.prototype.getDescendant = function () {
 };
 
 
+/**
+ * Retrieves the list of superior tasks for the current task instance.
+ * A superior task is typically one that has a higher level of hierarchy
+ * or dependency in relation to this task.
+ *
+ * @returns {Array<Task>} An array of Task objects that are the superiors
+ * of the current task. If no superiors exist, an empty array is returned.
+ */
 Task.prototype.getSuperiors = function () {
   var ret = [];
   var task = this;
@@ -785,6 +988,14 @@ Task.prototype.getSuperiors = function () {
   return ret;
 };
 
+/**
+ * Retrieves the list of tasks that are considered superior to the current task.
+ * A superior task is typically one that has a hierarchical relationship above
+ * the current task, such as a parent task in a task management system.
+ *
+ * @returns {Array<Task>} An array of tasks that are identified as superior to
+ * the current task. Returns an empty array if no superior tasks are found.
+ */
 Task.prototype.getSuperiorTasks = function () {
   var ret = [];
   var sups = this.getSuperiors();
@@ -794,6 +1005,13 @@ Task.prototype.getSuperiorTasks = function () {
 };
 
 
+/**
+ * Retrieves a list of inferiors (subtasks or dependent tasks)
+ * associated with the current task.
+ *
+ * @method
+ * @returns {Array} An array containing the list of inferiors for the task.
+ */
 Task.prototype.getInferiors = function () {
   var ret = [];
   var task = this;
@@ -805,6 +1023,13 @@ Task.prototype.getInferiors = function () {
   return ret;
 };
 
+/**
+ * Retrieves the list of tasks that are considered inferior or subordinate
+ * to the current task instance. This might include tasks that are
+ * hierarchically lower or dependent on the current task.
+ *
+ * @returns {Array} An array containing the inferior tasks associated with the current task.
+ */
 Task.prototype.getInferiorTasks = function () {
   var ret = [];
   var infs = this.getInferiors();
@@ -813,6 +1038,19 @@ Task.prototype.getInferiorTasks = function () {
   return ret;
 };
 
+//TODO: Need to set up the push update to the SeeView DB to deactivate the task in the table
+//TODO: Get the deletion to affect child tasks where appropriate
+/**
+ * Deletes the current task instance.
+ *
+ * This method is used to remove the task from its existing state or collection.
+ * It performs any necessary cleanup to ensure the task is properly removed.
+ * Depending on implementation, it may also handle any associated dependencies
+ * or references tied to the task.
+ *
+ * Note: Ensure this method is used cautiously, as it may lead to unexpected
+ * behaviors if the task is referenced or relied upon elsewhere after deletion.
+ */
 Task.prototype.deleteTask = function () {
   //console.debug("deleteTask",this.name,this.master.deletedTaskIds)
   //if is the current one remove it
@@ -847,10 +1085,25 @@ Task.prototype.deleteTask = function () {
 };
 
 
+/**
+ * Determines if the current object's ID starts with the prefix "tmp_",
+ * indicating that it is considered new or temporary.
+ *
+ * @return {boolean} True if the ID starts with "tmp_", otherwise false.
+ */
 Task.prototype.isNew = function () {
   return (this.id + "").indexOf("tmp_") == 0;
 };
 
+/**
+ * Checks if the current task is dependent on other tasks.
+ *
+ * This method determines whether the task has dependencies,
+ * meaning it relies on the completion or output of one or
+ * more other tasks in order to proceed or be considered complete.
+ *
+ * @returns {boolean} True if the task is dependent on other tasks, false otherwise.
+ */
 Task.prototype.isDependent = function (t) {
   //console.debug("isDependent",this.name, t.name)
   var task = this;
@@ -872,6 +1125,12 @@ Task.prototype.isDependent = function (t) {
   return false;
 };
 
+/**
+ * Sets the latest possible start and finish times for a task based on the given maximum cost.
+ *
+ * @param {number} maxCost - The maximum allowable cost for the task.
+ * @return {void} This method does not return a value.
+ */
 Task.prototype.setLatest = function (maxCost) {
   this.latestStart = maxCost - this.criticalCost;
   this.latestFinish = this.latestStart + this.duration;
@@ -879,6 +1138,19 @@ Task.prototype.setLatest = function (maxCost) {
 
 
 //<%------------------------------------------  INDENT/OUTDENT --------------------------------%>
+/**
+ * Adjusts the indentation level of the task.
+ *
+ * Updates the task's indentation level by modifying its internal state.
+ * This method is used to ensure that tasks maintain a correct hierarchical
+ * representation based on their indentation.
+ *
+ * @param {number} levels - The number of indentation levels to adjust.
+ *                           Positive values increase indentation,
+ *                           while negative values decrease it.
+ * @throws {RangeError} Throws if the resulting indentation level is invalid.
+ * @returns {void}
+ */
 Task.prototype.indent = function () {
   //console.debug("indent", this);
   //a row above must exist
@@ -949,6 +1221,14 @@ Task.prototype.indent = function () {
 };
 
 
+/**
+ * Reduces the indentation level of the current task.
+ * Moves the task one level up in the hierarchy,
+ * effectively making it less nested than its current state.
+ *
+ * If the task is already at the top level (not indented),
+ * this method will typically have no effect.
+ */
 Task.prototype.outdent = function () {
   //console.debug("outdent", this);
 
@@ -997,6 +1277,14 @@ Task.prototype.outdent = function () {
 
 
 //<%------------------------------------------  MOVE UP / MOVE DOWN --------------------------------%>
+/**
+ * Attempts to move the current task one position up in the task list.
+ * Ensures that the task adheres to the level hierarchy and updates its position both in memory and the DOM.
+ * Also recalculates dependency strings if the task is moved successfully.
+ *
+ * @return {boolean} Returns true if the task was successfully moved up. Returns false if the task cannot be moved
+ *                   due to invalid levels, no row above, or other inconsistencies.
+ */
 Task.prototype.moveUp = function () {
   //console.debug("moveUp", this);
   var ret = false;
@@ -1047,6 +1335,14 @@ Task.prototype.moveUp = function () {
 };
 
 
+/**
+ * Moves the current task row down if a valid position exists and the task is not the root task.
+ *
+ * The method looks for the nearest sibling or valid row position below the current row to relocate the task.
+ * It ensures that the task hierarchy and dependencies remain consistent after the move operation.
+ *
+ * @return {boolean} Returns true if the task row was successfully moved down; otherwise, returns false.
+ */
 Task.prototype.moveDown = function () {
   //console.debug("moveDown", this);
 
@@ -1104,6 +1400,17 @@ Task.prototype.moveDown = function () {
 };
 
 
+/**
+ * Determines if the status of the current task can be changed to the specified new status.
+ *
+ * @param {string} newStatus - The new status to which the current task is being evaluated.
+ * Possible statuses: "STATUS_DONE", "STATUS_ACTIVE", "STATUS_WAITING", "STATUS_SUSPENDED",
+ * "STATUS_FAILED", "STATUS_UNDEFINED".
+ *
+ * @return {boolean} Returns true if the status can be changed to the specified newStatus
+ * based on the rules for each status and the task's current state and relationships.
+ * Otherwise, returns false.
+ */
 Task.prototype.canStatusBeChangedTo=function(newStatus) {
   //lo stato corrente è sempre ok
   if (newStatus==this.status)
@@ -1112,9 +1419,9 @@ Task.prototype.canStatusBeChangedTo=function(newStatus) {
   var parent=this.getParent();
 
   //---------------------------------------------------------------------- STATUS_DONE ----------------------------------------------------------------
-  // un task può essere STATUS_DONE se di root
-  // se il suo padre non è fallito o undefined
-  // se non ha previouses aperti
+  // A task can be STATUS_DONE if it is a root task
+  // if its parent has not failed or is not undefined
+  // if it does not have open previous tasks
   if ("STATUS_DONE"==newStatus) {
     if (!parent )
       return true;
@@ -1131,8 +1438,10 @@ Task.prototype.canStatusBeChangedTo=function(newStatus) {
     return true;
 
 
-    //---------------------------------------------------------------------- STATUS_ACTIVE ----------------------------------------------------------------
-    //un task può essere STATUS_ACTIVE se l'eventuale padre è active e se tutti i predecessori sono in STATUS_DONE
+    /**
+     * ---------------------------------------------------------------------- STATUS_ACTIVE ----------------------------------------------------------------
+     * un task può essere STATUS_ACTIVE se l'eventuale padre è active e se tutti i predecessori sono in STATUS_DONE
+     */
   } else if ("STATUS_ACTIVE"==newStatus) {
     if (!parent )
       return true;
@@ -1200,6 +1509,14 @@ Task.prototype.canStatusBeChangedTo=function(newStatus) {
 
 
 //<%------------------------------------------------------------------------  LINKS OBJECT ---------------------------------------------------------------%>
+/**
+ * Creates a Link object that represents a connection between two tasks with an optional lag in working days.
+ *
+ * @param {Object} taskFrom - The starting task object for the link.
+ * @param {Object} taskTo - The ending task object for the link.
+ * @param {number} lagInWorkingDays - The delay or lag time between the tasks in working days.
+ * @return {void}
+ */
 function Link(taskFrom, taskTo, lagInWorkingDays) {
   this.from = taskFrom;
   this.to = taskTo;
@@ -1208,6 +1525,14 @@ function Link(taskFrom, taskTo, lagInWorkingDays) {
 
 
 //<%------------------------------------------------------------------------  ASSIGNMENT ---------------------------------------------------------------%>
+/**
+ * Represents an assignment for a resource with a specific role and effort.
+ *
+ * @param {number} id - The unique identifier for the assignment.
+ * @param {number} resourceId - The unique identifier of the resource assigned.
+ * @param {number} roleId - The unique identifier of the role assigned.
+ * @param {number} effort - The effort assigned, usually represented in hours or percentage.
+ */
 function Assignment(id, resourceId, roleId, effort) {
   this.id = id;
   this.resourceId = resourceId;
@@ -1217,6 +1542,16 @@ function Assignment(id, resourceId, roleId, effort) {
 
 
 //<%------------------------------------------------------------------------  RESOURCE ---------------------------------------------------------------%>
+
+//TODO: Add in additional properties of a resource
+//TODO: Add in categorisation enumeration
+/**
+ * Represents a Resource with an ID and a name.
+ *
+ * @param {number|string} id - The unique identifier for the resource.
+ * @param {string} name - The name of the resource.
+ * @return {Resource} A new instance of the Resource class.
+ */
 function Resource(id, name) {
   this.id = id;
   this.name = name;
@@ -1224,6 +1559,13 @@ function Resource(id, name) {
 
 
 //<%------------------------------------------------------------------------  ROLE ---------------------------------------------------------------%>
+/**
+ * Constructs a new Role object with the specified id and name.
+ *
+ * @param {number|string} id - The unique identifier for the role.
+ * @param {string} name - The name or designation of the role.
+ * @return {Role} A new instance of the Role object.
+ */
 function Role(id, name) {
   this.id = id;
   this.name = name;

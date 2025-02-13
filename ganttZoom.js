@@ -22,6 +22,14 @@
 
 */
 
+  /**
+   * Initializes the zoom levels and associated zoom drawer logic for a Gantt chart.
+   * This function defines multiple zoom levels represented by time ranges such as days, weeks, months, and quarters.
+   * It also sets up how those time ranges will be displayed in the Gantt chart's header and body through specific formatting and calculations.
+   * Custom behavior for adjusting visible start and end dates is included for each zoom level.
+   *
+   * @return {void} This function does not return a value.
+   */
   Ganttalendar.prototype.initZoomlevels = function () {
   //console.debug("Ganttalendar.prototype.initZoomlevels");
 
