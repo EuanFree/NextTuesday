@@ -144,6 +144,53 @@
     // Get active portfolio list and update sidebar contents
     $(document).ready(function () {
 
+        const getMaxTaskChangeId = async () => {
+            try {
+                const response = await fetch(`http://localhost:3000/maxTaskChangeId`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const json = await response.json();
+                console.log("Max Task Change ID: ", json);
+                const rows = json.rows;
+                return rows;
+            } catch (error) {
+                console.error(`Error fetching max task change ID:`, error);
+                return -1;
+            }
+        };
+
+        let maxTaskChangeCount = 0;
+        getMaxTaskChangeId().then(result => {
+            maxTaskChangeCount = result;
+        }).catch(error => {
+            console.error("Error initializing maxTaskChangeCount:", error);
+            maxTaskChangeCount = -1; // Fallback value in case of error
+        });
+        console.log("Max Task Change Count: ", maxTaskChangeCount);
+        // Prepped for later
+        // // Heartbeat mechanism that triggers periodic checks with the server
+        // const heartbeatInterval = 30000; // Interval in milliseconds (e.g., 30 seconds)
+        //
+        // const heartbeat = async () => {
+        //     try {
+        //         console.log("Heartbeat: Checking server status...");
+        //         const response = await fetch(`http://localhost:3000/heartbeat`);
+        //         if (!response.ok) {
+        //             throw new Error(`Heartbeat failed! HTTP error: ${response.status}`);
+        //         }
+        //         const serverData = await response.json();
+        //         console.log("Heartbeat response:", serverData);
+        //         // Use serverData to trigger specific actions if any updates or changes are detected
+        //     } catch (error) {
+        //         console.error("Heartbeat error:", error);
+        //     }
+        // };
+        //
+        // // Start the heartbeat
+        // setInterval(heartbeat, heartbeatInterval);
+        
+        
         //Test the project
         const projectTasks = async () => {
             try {

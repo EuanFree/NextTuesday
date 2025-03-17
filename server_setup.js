@@ -25,7 +25,9 @@ const { executeSQL,
     getProjectList,
     getProjectTasks,
     getResourceID,
-    getTask} = require('./seaviewConnection');
+    getTask,
+    getMaxTaskChangeID
+} = require('./seaviewConnection');
 
 
 const os = require('os');
@@ -335,6 +337,15 @@ app.post('/addTaskChange', async (req, res) => {
     }
 })
 
+app.get( '/maxTaskChangeId', async (req, res) => {
+    try{
+        const maxTaskChangeId = await getMaxTaskChangeID();
+        res.json(maxTaskChangeId);
+    } catch (error) {
+        console.error('Error getting max task change ID:', error);
+        res.status(500).send('An error occurred while getting the max task change ID.');
+    }
+})
 
 app.get('/addBlankTaskToProject', async (req, res) => {
     try{

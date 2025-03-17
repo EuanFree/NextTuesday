@@ -379,6 +379,31 @@ async function addTaskChange(taskID, changedBy, oldValues, newValues)
 
 
 /**
+ * Retrieves the maximum ID from the 'seaview.task_changes' table.
+ *
+ * @returns {Promise<number|null>} A promise that resolves to the maximum ID value
+ *                                or null if there are no records in the table.
+ */
+async function getMaxTaskChangeID() {
+    const query = `
+        SELECT MAX(task_id) AS max_id
+        FROM seaview.task_changes;
+    `;
+    try {
+        const result = await executeSQL(query);
+        if (result.rows.length > 0 && result.rows[0].max_id !== null) {
+            return result.rows[0].max_id;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error("Error retrieving maximum task ID from task_changes table:", error);
+        throw error;
+    }
+}
+
+
+/**
  * Updates an existing task in the 'tasks' table.
  *
  * @param {number} taskID - The unique identifier for the task to update.
@@ -923,7 +948,8 @@ module.exports = {
     getProjectList,
     getProjectTasks,
     getResourceID,
-    getTask
+    getTask,
+    getMaxTaskChangeID
 }
 
 
