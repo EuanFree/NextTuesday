@@ -24,6 +24,26 @@
  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+// let addTaskChange, updateTask, addBlankTask, addBlankProgramme, addBlankPortfolio, addBlankProject, addBlankResource, getPortfolioContents, getProgrammeContents;
+// try {
+//   ({
+//     addTaskChange,
+//     updateTask,
+//     addBlankTask,
+//     addBlankProgramme,
+//     addBlankPortfolio,
+//     addBlankProject,
+//     addBlankResource,
+//     getPortfolioContents,
+//     getProgrammeContents,
+//   } = require("./seaviewConnection.js"));
+// } catch (error) {
+//   console.error("Failed to load module: ./seaviewConnection.js", error);
+// }
+
+
+
 /**
  * Constructor for the GanttMaster class. This class is responsible for handling
  * the main logic and state for a Gantt chart, including tasks, dependencies, resources,
@@ -102,13 +122,19 @@ function GanttMaster() {
 
 
 /**
- * Initializes the GanttMaster instance by setting up the editor, work-space, grid, and other
- * essential components for rendering and interacting with the Gantt chart.
+ * Initializes the GanttMaster instance by setting up the container, defining editable tasks,
+ * preparing plugins, and binding various event listeners required for the Gantt chart.
  *
- * This method is responsible for binding event listeners, preparing the DOM structure,
- * and setting the necessary configurations for the Gantt chart to function correctly.
+ * This method is essential to prepare and render the Gantt chart within the specified DOM container.
  *
- * @param {Object} place - The DOM element or container where the Gantt chart will be initialized.
+ * Configuration includes:
+ * - Setting up the DOM structure.
+ * - Handling resource management for tasks.
+ * - Binding specific UI events such as clicks, keypresses, and mouse actions.
+ * - Initializing task filters and sorters if applicable.
+ * - Loading any predefined or default settings for the Gantt chart interface.
+ *
+ * Ensure that the container element and necessary configurations are provided before calling this method.
  */
 GanttMaster.prototype.init = function (workSpace) {
   var place=$("<div>").prop("id","TWGanttArea").css( {padding:0, "overflow-y":"auto", "overflow-x":"hidden","border":"1px solid #e5e5e5",position:"relative"});
@@ -327,7 +353,9 @@ GanttMaster.messages = {
  * @param {number} duration - The duration of the task in project units (e.g., days).
  * @returns {Task} The created task object with updated project task list and hierarchy.
  */
-GanttMaster.prototype.createTask = function (id, name, code, level, start, duration) {
+GanttMaster.prototype.createTask = function (name, code, level, start, duration) {
+  //Connect to the seaview database and get an id for
+  var id = addBlankTask()
   var factory = new TaskFactory();
   return factory.build(id, name, code, level, start, duration);
 };
@@ -345,7 +373,7 @@ GanttMaster.prototype.createTask = function (id, name, code, level, start, durat
 GanttMaster.prototype.getOrCreateResource = function (id, name) {
   var res= this.getResource(id);
   if (!res && id && name) {
-    res = this.createResource(id, name);
+    res = this.createResource(name);
   }
   return res
 };
@@ -357,7 +385,8 @@ GanttMaster.prototype.getOrCreateResource = function (id, name) {
  * @param {string} resourceName - The name of the resource to be created.
  * @returns {object} The newly created resource object, containing an ID and name.
  */
-GanttMaster.prototype.createResource = function (id, name) {
+GanttMaster.prototype.createResource = function (name) {
+  var id = addBlankResource();
   var res = new Resource(id, name);
   this.resources.push(res);
   return res;
@@ -521,6 +550,93 @@ GanttMaster.prototype.addTask = function (task, row) {
   return ret;
 };
 
+
+/**
+ * Initializes the GanttMaster instance with the project data fetched from the PostgreSQL database.
+ *
+ * This method uses the `getProjectJSON` function from `seaviewConnection.js` to retrieve project
+ * data from the database, and then initializes the GanttMaster instance accordingly.
+ * It sets up tasks, resources, and dependencies, and prepares the Gantt chart for rendering.
+ *
+ * @param {number} projectId - The unique ID of the project to be loaded.
+ * @throws {Error} Throws an error if the project data cannot be fetched or is incomplete.
+ * @returns {Promise<boolean>} Returns a promise that resolves to true if the project is successfully loaded, otherwise false.
+ */
+GanttMaster.prototype.loadProjectFromDatabase = async function (projectId) {
+  try {
+    // Begin a new transaction
+    this.beginTransaction();
+
+    // Fetch the project JSON from the database using the external function
+    const project = await getProjectJSON(projectId);
+
+    if (!project) {
+      throw new Error("Failed to load project data from the database.");
+    }
+
+    // Set time offset from the server
+    this.serverClientTimeOffset = typeof project.serverTimeOffset !== "undefined"
+        ? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000)
+        : 0;
+
+    // Load resources and roles from the project
+    this.resources = project.resources;
+    this.roles = project.roles;
+
+    // Apply permissions from the loaded project
+    this.permissions.canWrite = project.canWrite;
+    this.permissions.canAdd = project.canAdd;
+    this.permissions.canWriteOnParent = project.canWriteOnParent;
+    this.permissions.cannotCloseTaskIfIssueOpen = project.cannotCloseTaskIfIssueOpen;
+    this.permissions.canAddIssue = project.canAddIssue;
+    this.permissions.canDelete = project.canDelete;
+
+    // Refresh the button bar based on permissions
+    this.checkButtonPermissions();
+
+    // Set editable boundaries
+    this.minEditableDate = project.minEditableDate ? computeStart(project.minEditableDate) : -Infinity;
+    this.maxEditableDate = project.maxEditableDate ? computeEnd(project.maxEditableDate) : Infinity;
+
+    // Recover stored collapsed states
+    const collTasks = this.loadCollapsedTasks();
+
+    // Adjust task dates and set collapsed status
+    for (const task of project.tasks) {
+      task.start += this.serverClientTimeOffset;
+      task.end += this.serverClientTimeOffset;
+      task.collapsed = collTasks.indexOf(task.id) >= 0;
+    }
+
+    // Load tasks into GanttMaster
+    this.loadTasks(project.tasks, project.selectedRow);
+    this.deletedTaskIds = [];
+
+    // Handle saved zoom level
+    if (project.zoom) {
+      this.gantt.zoom = project.zoom;
+    } else {
+      this.gantt.shrinkBoundaries();
+      this.gantt.setBestFittingZoom();
+    }
+
+    // End the transaction
+    this.endTransaction();
+
+    // Center Gantt on today's date
+    const self = this;
+    this.gantt.element.oneTime(200, () => {
+      self.gantt.centerOnToday();
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error loading project from database:", error);
+    this.endTransaction();
+    return false;
+  }
+};
+
 //TODO: Convert this to work with PostgreSQL database rather than a file
 /**
  * Loads a project into the GanttMaster instance.
@@ -593,6 +709,10 @@ GanttMaster.prototype.loadProject = function (project) {
   this.gantt.element.oneTime(200, function () {self.gantt.centerOnToday()});
 };
 
+GanttMaster.prototype.loadTasksFromPostgreSQL = function()
+{
+
+}
 
 /**
  * Loads a list of tasks into the Gantt chart and processes them for rendering.
@@ -745,15 +865,10 @@ GanttMaster.prototype.moveTask = function (task, newStart) {
 
 
 /**
- * Handles updates to a task in the Gantt chart and triggers necessary operations when a task is modified.
+ * This method is triggered when a task is modified.
+ * It handles the changes to a task within the GanttMaster project management system.
  *
- * This function is called when a task's properties have been modified. It checks if
- * the task is a root task or a dependent task. Additionally, it ensures the integrity of the task's data
- * and updates task dependencies, effort recalculations, and resource assignments if required.
- *
- * @param {Task} task - The task that has been updated or changed.
- * @param {boolean} [updateRequires=true] - Indicates whether the function should update the task's dependencies.
- *                                           By default, dependencies are updated when the task changes.
+ * @param {Object} task - The task object that has been changed.
  */
 GanttMaster.prototype.taskIsChanged = function () {
   //console.debug("taskIsChanged");
@@ -770,6 +885,7 @@ GanttMaster.prototype.taskIsChanged = function () {
     //profiler.stop();
   });
   //profilerext.stop();
+
 };
 
 

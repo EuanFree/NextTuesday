@@ -36,14 +36,73 @@
   <script type="text/javascript" src="libs/jquery/svg/jquery.svg.min.js"></script>
   <script type="text/javascript" src="libs/jquery/svg/jquery.svgdom.1.8.js"></script>
 
+<!--    /* Comment this out as likely should be in the backend-->
+<!--        <script src="seaviewConnection.js"></script>-->
+<!--    */-->
 
   <script src="ganttUtilities.js"></script>
   <script src="ganttTask.js"></script>
   <script src="ganttDrawerSVG.js"></script>
   <script src="ganttZoom.js"></script>
   <script src="ganttGridEditor.js"></script>
-  <script src="ganttMaster.js"></script>  
 
+    <script src="ganttMaster.js"></script>
+
+    <script>
+        async function getPortfolioListFromServer() {
+            try
+            {
+                console.log('Fetching portfolio list from server...');
+                const response = await fetch('http://localhost:3000/portfolioList');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const json = await response.json();
+                const rows = json.rows;
+                console.log("Rows: ");
+                console.log(rows);
+                return rows;
+            }
+            catch (error)
+            {
+                console.error('Error fetching portfolio list:', error);
+            }
+        }
+
+        async function getPortfolioContentsFromServer(portfolioId) {
+            try {
+                console.log(`Fetching contents for portfolio ID: ${portfolioId}...`);
+                const response = await fetch(`http://localhost:3000/portfolioContents?portfolioId=${portfolioId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const json = await response.json();
+                console.log("Portfolio Contents: ", json);
+                const rows = json.rows;
+                console.log("Rows: ");
+                console.log(rows);
+                return rows;
+            } catch (error) {
+                console.error(`Error fetching portfolio contents for ID ${portfolioId}:`, error);
+            }
+        }
+
+        async function getProjectTasksFromServer(projectId) {
+            try {
+                console.log(`Fetching tasks for project ID: ${projectId}...`);
+                const response = await fetch(`http://localhost:3000/projectTasks?projectId=${projectId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const json = await response.json();
+                console.log("Project Tasks: ", json);
+                const rows = json.rows;
+                return rows;
+            } catch (error) {
+                console.error(`Error fetching tasks for project ID ${projectId}:`, error);
+            }
+        }
+    </script>
 
   <!--<script src="libs/profiling.js"></script>-->
   <!--<script type="text/javascript" src="ganttTestSuite.js"></script>-->
@@ -77,6 +136,255 @@
         <div id="workSpace" style="padding:0px; overflow-y:auto; overflow-x:hidden;border:1px solid #e5e5e5;position:relative;margin:0 5px"></div>
     </div>
 </div>
+
+
+<script>
+
+
+    // Get active portfolio list and update sidebar contents
+    $(document).ready(function () {
+
+        //Test the project
+        const projectTasks = async () => {
+            try {
+                const tasks = await getProjectTasksFromServer(1);
+                console.log("Tasks for Project ID 1: ", tasks);
+            } catch (error) {
+                console.error("Error fetching tasks for Project ID 1:", error);
+            }
+        };
+
+
+        const updateSidebarWithPortfolios = async () => {
+            try {
+                const portfolioList = await getPortfolioListFromServer();
+                const sideMenu = $("#sideMenu ul");
+
+                // Clear existing sidebar content
+                sideMenu.empty();
+
+                // Add a button for each portfolio in the list
+                portfolioList.forEach(portfolio => {
+                    const button = $("<li>")
+                        .text(portfolio.title)
+                        // .on("click", function () {
+                        //     alert(`Selected: ${portfolio.title}`);
+                        .on("click", () => portfolioSelected(portfolio.id));
+                    sideMenu.append(button);
+                });
+            } catch (error) {
+                console.error("Error fetching portfolio list:", error);
+                // You can display a user-friendly error message here
+            }
+        };
+
+        const addBlankTaskToProject = async (projectId) => {
+            try {
+                const response = await fetch(`http://localhost:3000/addBlankTaskToProject?projectId=${projectId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const json = await response.json();
+                console.log("Project Tasks: ", json);
+                const rows = json.rows;
+                return rows;
+            } catch (error) {
+                console.error(`Error adding task to project ${projectId}:`, error);
+            }
+        };
+
+        /**
+         * Asynchronously fetches the username from a server endpoint.
+         *
+         * This function makes a GET request to `http://localhost:3000/getUsername`
+         * to fetch the username. It handles HTTP errors and logs any errors encountered
+         * during the fetch operation.
+         *
+         * @returns {Promise<Object | undefined>} A promise that resolves to the response
+         * data as a JSON object if the request is successful, or undefined if an error occurs.
+         */
+        const getUsername = async () => {
+            try {
+                const response = await fetch(`http://localhost:3000/getUsername`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error getting username:`, error);
+            }
+        };
+
+        const getUserID = async () => {
+            try {
+                const response = await fetch(`http://localhost:3000/getUserID`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error getting user ID:`, error);
+            }
+        };
+        
+
+        /**
+         * Fetches a task by its ID from the server.
+         *
+         * @param {number|string} taskId - The ID of the task to be fetched.
+         * @returns {Promise<Object | undefined>} A promise that resolves to the task object if the request is successful, or undefined if an error occurs.
+         */
+        const getTaskById = async (taskId) => {
+            try {
+                if (!taskId) {
+                    throw new Error("Task ID must be provided.");
+                }
+                const response = await fetch(`http://localhost:3000/getTask?taskId=${taskId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const task = await response.json();
+                console.log("Fetched task:", task);
+                return task;
+            } catch (error) {
+                console.error(`Error fetching task with ID ${taskId}:`, error);
+            }
+        };
+        
+
+        /**
+         * An asynchronous function that logs and sends task changes for audit purposes.
+         * This function prepares the details of a task's changes, logs them, and sends
+         * the data to a server endpoint for further recording.
+         *
+         * @param {string} taskId - The unique identifier of the task being modified.
+         * @param {Object} task - The updated task data containing changes made to the task.
+         * @returns {Promise<Object|undefined>} A promise that resolves with the response
+         * from the server if the task change is recorded successfully, or undefined in case of an error.
+         *
+         * @throws {Error} Will throw an error if:
+         * - User ID cannot be retrieved for audit logging.
+         * - Task data for the specified task ID cannot be fetched for comparison.
+         * - The server request fails or returns a non-OK status.
+         */
+        const addTaskChange = async (taskId, task) => {
+            try {
+                
+
+                // Prepare task change details for audit logging
+                const taskChangeDetails = async () => {
+                    try {
+                        console.log("Preparing task change details...");
+                        const userIDData = await getUserID();
+                        if (!userIDData) {
+                            throw new Error("Failed to fetch the user ID for audit logging.");
+                        }
+
+                        const changedBy = userIDData.userId; // Assuming `userId` is the field in the response
+                        const currentTaskData = await getTaskById(taskId);
+                        if (!currentTaskData) {
+                            throw new Error(`Failed to fetch task with ID ${taskId} for audit logging.`);
+                        }
+
+                        const oldValues = Object.keys(task).reduce((result, key) => {
+                            if (currentTaskData.hasOwnProperty(key)) {
+                                result[key] = currentTaskData[key];
+                            }
+                            return result;
+                        }, {});
+                        const newValues = task;
+                        console.log("Task change details:");
+                        console.log("Task ID:", taskId);
+                        console.log("Changed by:", changedBy);
+                        console.log("Old values:", oldValues);
+                        console.log("New values:", newValues);
+
+                        return {
+                            taskId,
+                            changedBy,
+                            oldValues,
+                            newValues,
+                            timestamp: new Date().toISOString() // Adding a timestamp for logging purposes
+                        };
+                    } catch (error) {
+                        console.error("Error logging task change:", error);
+                    }
+                };
+
+                // Call the taskChangeDetails function to log the change
+                const tcd = await taskChangeDetails();
+                
+                console.log('Sending task change details to server:', tcd);
+
+                const response = await fetch(`http://localhost:3000/addTaskChange`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(tcd),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const json = await response.json();
+                console.log('Task change successfully recorded:', json);
+                return json;
+            } catch (error) {
+                console.error('Error sending task change:', error);
+            }
+        };
+        
+        
+        /**
+         * Asynchronously updates a task by sending a POST request to the server.
+         *
+         * @param {string} taskId - The unique identifier of the task to be updated.
+         * @param {Object} task - The task object containing the updated properties.
+         * @returns {Promise<void>} A promise that resolves when the task update request is completed.
+         * @throws {Error} Throws an error if the HTTP response is not successful or if an exception occurs during the update process.
+         */
+        const updateTask = async (taskId, task) => {
+            try {
+                console.log("Updating task: ", task);
+                const response = await fetch(`http://localhost:3000/updateTask?taskId=${taskId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(task)
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error(`Error updating task ${taskId}:`, error);
+            }
+        };
+
+
+
+        // projectTasks();
+        console.log('Test Section')
+        getUsername();
+        updateSidebarWithPortfolios();
+        addBlankTaskToProject(1);
+        console.log("Start task update");
+        updateTask(1,{"id": 1,"title": "New Task","progress": 0.5});
+        addTaskChange(1,{"id": 1,"title": "New Task","progress": 0.5});
+        console.log("Task Updated");
+
+        async function portfolioSelected(portfolioId) {
+            console.log("Portfolio Selected: ", portfolioId);
+            const portfolioContents = await getPortfolioContentsFromServer(portfolioId);
+            console.log("Portfolio Contents: ", portfolioContents);
+            return portfolioContents;
+        }
+    });
+    
+
+</script>
 
 <!-- Footer -->
 <div id="statusBar">
@@ -215,21 +523,32 @@ $(/**
  * write access is managed, and the history management is initialized.
  */
 function() {
-  var canWrite=true; //this is the default for test purposes
+    console.log("jQuery ready function fired");
+
+    var canWrite=true; //this is the default for test purposes
 
   // here starts gantt initialization
   ge = new GanttMaster();
   ge.set100OnClose=true;
 
   ge.shrinkParent=true;
+    var workSpaceElement = $("#workSpace");
+    if (workSpaceElement.length === 0) {
+        console.error("Workspace element (#workSpace) not found in DOM.");
+        return;
+    }
+    else
+    {
+        console.log("workSpaceElement: "+workSpaceElement+" founc");
+    }
 
-  ge.init($("#workSpace"));
+    ge.init(workSpaceElement);
   loadI18n(); //overwrite with localized ones
 
   //in order to force compute the best-fitting zoom level
   delete ge.gantt.zoom;
 
-  var project=loadFromLocalStorage();
+  var project=getDemoProject();
 
   if (!project.canWrite)
     $(".ganttButtonBar button.requireWrite").attr("disabled","true");
@@ -421,6 +740,7 @@ function saveGanttOnServer() {
  * @param {string} type - The MIME type of the file (e.g., "text/plain", "application/json").
  * @return {void} This function does not return any value.
  */
+/*
 function download(data, filename, type) {
   var file = new Blob([data], {type: type});
   if (window.navigator.msSaveOrOpenBlob) // IE10+
@@ -437,17 +757,18 @@ function download(data, filename, type) {
       window.URL.revokeObjectURL(url);  
     }, 0); 
   }
-}
+}*/
 
 /**
  * Initializes a new project by clearing the Gantt chart.
  *
  * @return {void} This method does not return a value.
  */
+/*
 function newProject(){
   clearGantt();
 }
-
+*/
 
 /**
  * Clears the Gantt chart by resetting its state and removing any stored data or configurations.
@@ -466,53 +787,54 @@ function clearGantt() {
  *
  * @return {void} Does not return a value.
  */
-function getFile() {
-  $("#gimBaPrj").val(JSON.stringify(ge.saveProject()));
-  $("#gimmeBack").submit();
-  $("#gimBaPrj").val("");
-
-  /*  var uriContent = "data:text/html;charset=utf-8," + encodeURIComponent(JSON.stringify(prj));
-   neww=window.open(uriContent,"dl");*/
-}
-
-
-/**
- * Loads project data from the local storage. If no data is found or the data
- * is incomplete (e.g., no tasks are present), it generates a new example project.
- *
- * @return {Object} The project data retrieved from local storage, or a new
- * example project object if no valid data is found.
- */
-function loadFromLocalStorage() {
-  var ret;
-  if (localStorage) {
-    if (localStorage.getObject("teamworkGantDemo")) {
-      ret = localStorage.getObject("teamworkGantDemo");
-    }
-  }
-
-  //if not found create a new example task
-  if (!ret || !ret.tasks || ret.tasks.length == 0){
-    ret=getDemoProject();
-  }
-  return ret;
-}
+/*
+// function getFile() {
+//   $("#gimBaPrj").val(JSON.stringify(ge.saveProject()));
+//   $("#gimmeBack").submit();
+//   $("#gimBaPrj").val("");
+//
+//   /*  var uriContent = "data:text/html;charset=utf-8," + encodeURIComponent(JSON.stringify(prj));
+//    neww=window.open(uriContent,"dl");*/
+// }
 
 
-/**
- * Saves the current project data into the local storage with a predefined key.
- * The method retrieves the current project details, serializes it,
- * and stores it into the browser's local storage if available.
- *
- * @return {void} This method does not return a value.
- */
-function saveInLocalStorage() {
-  var prj = ge.saveProject();
+// /**
+//  * Loads project data from the local storage. If no data is found or the data
+//  * is incomplete (e.g., no tasks are present), it generates a new example project.
+//  *
+//  * @return {Object} The project data retrieved from local storage, or a new
+//  * example project object if no valid data is found.
+//  */
+// function loadFromLocalStorage() {
+//   var ret;
+//   if (localStorage) {
+//     if (localStorage.getObject("teamworkGantDemo")) {
+//       ret = localStorage.getObject("teamworkGantDemo");
+//     }
+//   }
+//
+//   //if not found create a new example task
+//   if (!ret || !ret.tasks || ret.tasks.length == 0){
+//     ret=getDemoProject();
+//   }
+//   return ret;
+// }
 
-  if (localStorage) {
-    localStorage.setObject("teamworkGantDemo", prj);
-  }
-}
+
+// /**
+//  * Saves the current project data into the local storage with a predefined key.
+//  * The method retrieves the current project details, serializes it,
+//  * and stores it into the browser's local storage if available.
+//  *
+//  * @return {void} This method does not return a value.
+//  */
+// function saveInLocalStorage() {
+//   var prj = ge.saveProject();
+//
+//   if (localStorage) {
+//     localStorage.setObject("teamworkGantDemo", prj);
+//   }
+// }
 
 
 //-------------------------------------------  Open a black popup for managing resources. This is only an axample of implementation (usually resources come from server) ------------------------------------------------------
@@ -1049,7 +1371,8 @@ function showBaselineInfo (event,element){
    * @param {HTMLElement} el The element that triggered the creation of a new resource. Used to find the corresponding row and update its data.
    * @return {void} This function does not return any value but updates the input fields in the corresponding row with the new resource details.
    */
-  function createNewResource(el) {
+  function createNewResource(el)
+  {
     var row = el.closest("tr[taskid]");
     var name = row.find("[name=resourceId_txt]").val();
     var url = contextPath + "/applications/teamwork/resource/resourceNew.jsp?CM=ADD&name=" + encodeURI(name);
@@ -1065,61 +1388,61 @@ function showBaselineInfo (event,element){
     });
   }
 
-	$(document).on("change", "#load-file", function() {
-	  var uploadedFile = $("#load-file").prop("files")[0];
-	  upload(uploadedFile);
-	});
-	let cMenu = null;
-	let cMenuVisible = false;
-	function showContextMenu(event, target) 
-	{
-		if(event.target.classList.contains('ganttButtonBar')||event.target.classList.contains('buttons'))
-		{
-			cMenu.style.display = 'none';
-			cMenuVisible = false;
-			event.preventDefault();
-			return 0;
-		}
-		
-		if(cMenuVisible)
-		{
-			cMenu.style.display = 'none';
-			cMenuVisible = false;
-		}
-		event.preventDefault();
-		
-		
-		
-		console.log(event.target);
-		console.log(event.target.classList);
-	
-		if(document.querySelector('.gdfWrapper').contains(event.target))
-		{
-			cMenu = tableContextMenu;
-			console.log('GDF WRAPPER');
-		}
-		else if(document.querySelector('.splitBox2').contains(event.target))
-		{
-			if(event.target.classList.contains("taskLayout"))
-			{
-				cMenu = taskbarContextMenu;
-				console.log('TASK BAR');
-			}
-			else
-			{
-				cMenu = nonTaskGanttContextMenu;
-				console.log('SPLIT BOX 2');
-			}
-		}
-		console.log(cMenu);
-		cMenu.style.top = `${event.clientY}px`;
-		cMenu.style.left = `${event.clientX}px`;
-		cMenu.style.display = 'block';
-		cMenuVisible = true;
+$(document).on("change", "#load-file", function() {
+  var uploadedFile = $("#load-file").prop("files")[0];
+  upload(uploadedFile);
+});
+let cMenu = null;
+let cMenuVisible = false;
+function showContextMenu(event, target)
+{
+    if(event.target.classList.contains('ganttButtonBar')||event.target.classList.contains('buttons'))
+    {
+        cMenu.style.display = 'none';
+        cMenuVisible = false;
+        event.preventDefault();
+        return 0;
+    }
 
-		// Optionally store information about the clicked target
-		cMenu.dataset.target = target.getAttribute('taskid');
-	}
+    if(cMenuVisible)
+    {
+        cMenu.style.display = 'none';
+        cMenuVisible = false;
+    }
+    event.preventDefault();
+
+
+
+    console.log(event.target);
+    console.log(event.target.classList);
+
+    if(document.querySelector('.gdfWrapper').contains(event.target))
+    {
+        cMenu = tableContextMenu;
+        console.log('GDF WRAPPER');
+    }
+    else if(document.querySelector('.splitBox2').contains(event.target))
+    {
+        if(event.target.classList.contains("taskLayout"))
+        {
+            cMenu = taskbarContextMenu;
+            console.log('TASK BAR');
+        }
+        else
+        {
+            cMenu = nonTaskGanttContextMenu;
+            console.log('SPLIT BOX 2');
+        }
+    }
+    console.log(cMenu);
+    cMenu.style.top = `${event.clientY}px`;
+    cMenu.style.left = `${event.clientX}px`;
+    cMenu.style.display = 'block';
+    cMenuVisible = true;
+
+    // Optionally store information about the clicked target
+    cMenu.dataset.target = target.getAttribute('taskid');
+}
 	
 	/**
      * Hides the context menu if the clicked target is outside of the specified menu element.
