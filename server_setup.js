@@ -26,13 +26,32 @@ const { executeSQL,
     getProjectTasks,
     getResourceID,
     getTask,
-    getMaxTaskChangeID
+    getMaxTaskChangeID,
+    getEnumerationTable,
+    getProjectJSON,
+    getResourcesList,
+    getProjectTaskUserSetup,
+    countTaskAncestors
 } = require('./seaviewConnection');
+
+
+// TODO: Move the username to a client side cookie in order to keep things more simple
 
 
 const os = require('os');
 const username = os.userInfo().username;
 console.log("Current user:", username);
+
+let userID = null;
+(async () => {
+    try {
+        userID = await getResourceID(username);
+        console.log("Resource ID for current user:", userID);
+    } catch (error) {
+        console.error("Error fetching resource ID for current user:", error);
+    }
+})();
+//const userID = await getResourceID(username);
 
 // Initialize express app
 const app = express();
@@ -118,13 +137,15 @@ app.get('/portfolioList', async (req, res) => {
 app.get('/projectTasks', async (req, res) => {
     try {
         console.log('Starting to get project tasks...');
-        const projectId = req.query.projectId; // Expecting `projectId` as query parameter
+        const projectId = req.query.projectId;
+        const activeOnly = req.query.activeOnly;// Expecting `projectId` as query parameter
         if (!projectId) {
             return res.status(400).send('Project ID not provided.');
         }
-        const tasks = await getProjectTasks(projectId);
-        console.log('Getting project tasks...');
-        console.log(tasks);
+        if (!activeOnly) {
+            return res.status(400).send('Active only not provided.');
+        }
+        const tasks = await getProjectTasks(projectId, activeOnly=="true");
         console.log('Done getting project tasks...');
         res.json(tasks);
     } catch (error) {
@@ -294,6 +315,15 @@ app.get('/addBlankResource', async (req, res) => {
 });
 
 
+app.get('/getMyUserID', async (req, res) => {
+    try{
+        res.json(userID);
+    } catch (error) {
+        console.error('Error getting my user ID:', error);
+        res.status(500).send('An error occurred while getting the my user ID.');
+    }
+})
+
 
 app.post('/updateTask', async (req, res) => {
     try {
@@ -363,6 +393,63 @@ app.get('/addBlankTaskToProject', async (req, res) => {
     }
 });
 
+app.get('/getEnumerationTable', async (req, res) => {
+    const typeName = req.query.typeName;
+    try{
+        const table = await getEnumerationTable(typeName);
+        res.json(table);
+    } catch (error) {
+        console.error('Error getting enumeration table:', error);
+        res.status(500).send('An error occurred while getting the enumeration table.');
+    }
+})
+
+app.get('/getProjectJSON', async (req, res) => {
+    const projectId = req.query.projectId;
+    const userId = req.query.userId;
+    console.log('Getting project JSON for project ID: ', projectId);
+    console.log('Getting project JSON for user ID: ', userId);
+    try{
+        const project = await getProjectJSON(projectId, userId);
+        res.json(project);
+    } catch (error) {
+        console.error('Error getting project JSON:', error);
+        res.status(500).send('An error occurred while getting the project JSON.');
+    }
+})
+
+app.get('/getResourcesList', async (req, res) => {
+    try{
+        const resources = await getResourcesList();
+        res.json(resources);
+    } catch (error) {
+        console.error('Error getting resources list:', error);
+        res.status(500).send('An error occurred while getting the resources list.');
+    }
+})
+
+app.get('/getProjectTaskUserSetup', async (req, res) => {
+    const taskId = req.query.taskId;
+    try{
+        const taskSetup = await getProjectTaskUserSetup(taskId);
+        res.json(taskSetup);
+    } catch (error) {
+        console.error('Error getting project task user setup:', error);
+        res.status(500).send('An error occurred while getting the project task user setup.');
+    }
+})
+
+
+app.get('/countTaskAncestors', async (req, res) => {
+    const taskId = req.query.taskId;
+    try{
+        const count = await countTaskAncestors(taskId);
+        res.json(count);
+    } catch (error) {
+        console.error('Error counting task ancestors:', error);
+        res.status(500).send('An error occurred while counting the task ancestors.');
+    }
+})
 
 // Start the server
 app.listen(PORT, () => {

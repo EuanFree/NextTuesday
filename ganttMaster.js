@@ -25,25 +25,6 @@
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-// let addTaskChange, updateTask, addBlankTask, addBlankProgramme, addBlankPortfolio, addBlankProject, addBlankResource, getPortfolioContents, getProgrammeContents;
-// try {
-//   ({
-//     addTaskChange,
-//     updateTask,
-//     addBlankTask,
-//     addBlankProgramme,
-//     addBlankPortfolio,
-//     addBlankProject,
-//     addBlankResource,
-//     getPortfolioContents,
-//     getProgrammeContents,
-//   } = require("./seaviewConnection.js"));
-// } catch (error) {
-//   console.error("Failed to load module: ./seaviewConnection.js", error);
-// }
-
-
-
 /**
  * Constructor for the GanttMaster class. This class is responsible for handling
  * the main logic and state for a Gantt chart, including tasks, dependencies, resources,
@@ -115,7 +96,8 @@ function GanttMaster() {
   this.__redoStack = [];
   this.__inUndoRedo = false; // a control flag to avoid Undo/Redo stacks reset when needed
 
-  Date.workingPeriodResolution=1; //by default 1 day
+  /* 2025/03/19 EF - Switched to 0.5 a day */
+  Date.workingPeriodResolution=0.5; //by default 1 day
 
   var self = this;
 }
@@ -162,6 +144,9 @@ GanttMaster.prototype.init = function (workSpace) {
   self.splitter = $.splittify.init(place, this.editor.gridified, this.gantt.element, 60);
   self.splitter.firstBoxMinWidth = 5;
   self.splitter.secondBoxMinWidth = 20;
+
+
+  // Setup the buttons for the plan ------------------------------------------------------------------------------------
 
   //prepend buttons
   var ganttButtons = $.JST.createFromTemplate({}, "GANTBUTTONS");
@@ -344,7 +329,8 @@ GanttMaster.messages = {
   "CANNOT_CREATE_SAME_LINK":               "CANNOT_CREATE_SAME_LINK"
 };
 
-//TODO: Needs the id to come from the PostgreSQL database
+//TODO: Needs the id to come from the PostgreSQL database - sort out in the TaskFactory rather than here
+//TODO: Ensure the project ID is past across so task is created in the right project
 /**
  * Creates a new task and attaches it to the project structure.
  *
@@ -355,12 +341,13 @@ GanttMaster.messages = {
  */
 GanttMaster.prototype.createTask = function (name, code, level, start, duration) {
   //Connect to the seaview database and get an id for
-  var id = addBlankTask()
   var factory = new TaskFactory();
   return factory.build(id, name, code, level, start, duration);
 };
 
-
+/** TODO: Connect this up with the database to ensure that only the correct resources are used
+ * Don't want this to allow the creation of many resources
+ */
 /**
  * Retrieves an existing resource from the resource list based on its name.
  * If the resource with the specified name does not exist in the list,
@@ -550,84 +537,229 @@ GanttMaster.prototype.addTask = function (task, row) {
   return ret;
 };
 
+/* EF connection to the PostgreSQL database */
 
 /**
- * Initializes the GanttMaster instance with the project data fetched from the PostgreSQL database.
+ * Loads a project from the database into the GanttMaster instance.
  *
- * This method uses the `getProjectJSON` function from `seaviewConnection.js` to retrieve project
- * data from the database, and then initializes the GanttMaster instance accordingly.
- * It sets up tasks, resources, and dependencies, and prepares the Gantt chart for rendering.
+ * This function fetches project data from the database and initializes the GanttMaster instance
+ * with tasks, resources, roles, and user permissions. It sets up all the necessary configurations
+ * to render a Gantt chart with the loaded project. The method ensures compatibility between
+ * database-stored data and the Gantt chart by processing and adjusting it appropriately.
  *
- * @param {number} projectId - The unique ID of the project to be loaded.
- * @throws {Error} Throws an error if the project data cannot be fetched or is incomplete.
- * @returns {Promise<boolean>} Returns a promise that resolves to true if the project is successfully loaded, otherwise false.
+ * @async
+ * @param {number} projectId - The unique identifier of the project to be loaded from the database.
+ * @param {number} userID - The unique identifier of the user requesting the project data.
+ *
+ * @throws {Error} Throws an error if the project data cannot be retrieved, or if an unexpected error occurs during the process.
+ *
+ * @returns {Promise<boolean>} Returns true if the project is successfully loaded, otherwise false.
+ *
+ * Functionality:
+ * 1. Starts a database transaction to ensure consistency while data is being loaded.
+ * 2. Fetches project details from the database, including tasks, resources, and permissions.
+ * 3. Adjusts the server-client time offset to maintain consistent scheduling.
+ * 4. Loads and maps resources and roles from the database into the GanttMaster instance.
+ * 5. Configures permissions for the currently loaded project, enabling or restricting user actions based on their role.
+ * 6. Sets task boundaries and adjusts the Gantt chart's zoom level for optimal view.
+ * 7. Recovers and applies previously collapsed task states if applicable.
+ * 8. Centers the Gantt chart on today's date for better task tracking and visualization.
+ *
+ * Database Dependencies:
+ * - `getProjectJSON`: Retrieves the project JSON data from the database.
+ * - `getResourcesList`: Fetches the list of resources associated with the project.
+ * - `getEnumerationTable`: Retrieves role data based on a specific type (e.g., resource type).
  */
-GanttMaster.prototype.loadProjectFromDatabase = async function (projectId) {
+GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userID) {
   try {
     // Begin a new transaction
     this.beginTransaction();
 
     // Fetch the project JSON from the database using the external function
-    const project = await getProjectJSON(projectId);
+    console.log(`Loading project ${projectId} from database and user ${userID}...`);
+    // const project = await getProjectJSON(projectId, userID);
+    getProjectJSON(projectId, userID).then(project =>  {
+      if (!project) {
+        throw new Error("Failed to load project data from the database.");
+      }
 
-    if (!project) {
-      throw new Error("Failed to load project data from the database.");
-    }
 
-    // Set time offset from the server
-    this.serverClientTimeOffset = typeof project.serverTimeOffset !== "undefined"
-        ? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000)
-        : 0;
+      console.log(`Project ${projectId} loaded from database.`);
+      console.log('Project: ' + project);
 
-    // Load resources and roles from the project
-    this.resources = project.resources;
-    this.roles = project.roles;
 
-    // Apply permissions from the loaded project
-    this.permissions.canWrite = project.canWrite;
-    this.permissions.canAdd = project.canAdd;
-    this.permissions.canWriteOnParent = project.canWriteOnParent;
-    this.permissions.cannotCloseTaskIfIssueOpen = project.cannotCloseTaskIfIssueOpen;
-    this.permissions.canAddIssue = project.canAddIssue;
-    this.permissions.canDelete = project.canDelete;
 
-    // Refresh the button bar based on permissions
-    this.checkButtonPermissions();
+      // Set time offset from the server
+      this.serverClientTimeOffset = typeof project.serverTimeOffset !== "undefined"
+          ? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000)
+          : 0;
 
-    // Set editable boundaries
-    this.minEditableDate = project.minEditableDate ? computeStart(project.minEditableDate) : -Infinity;
-    this.maxEditableDate = project.maxEditableDate ? computeEnd(project.maxEditableDate) : Infinity;
+      // Load resources and roles from the project
+      // let resourcesFromDB = await getResourcesList();
+      getResourcesList().then(resourcesFromDB =>  {
+        for (let resource of resourcesFromDB.rows) {
+          this.resources[resource.id].name = resource.name;
+          this.resources[resource.id].id = resource.id;
+          this.resources[resource.id].resourceType = resource.resource_type;
+          this.resources[resource.id].resourceDepartment = resource.resource_department;
+          this.resources[resource.id].email = resource.email;
+          this.resources[resource.id].username = resource.username;
+          this.resources[resource.id].isActive = resource.is_active;
+          this.resources[resource.id].workPattern = [resource.works_on_monday,
+            resource.works_on_tuesday,
+            resource.works_on_wednesday,
+            resource.works_on_thursday,
+            resource.works_on_friday,
+            resource.works_on_saturday,
+            resource.works_on_sunday];
+        }
 
-    // Recover stored collapsed states
-    const collTasks = this.loadCollapsedTasks();
+        // Pull in the data for the roles
+        // let rolesFromDB = await getEnumerationTable("resourcetype");
+        getEnumerationTable("resourcetype").then(rolesFromDB =>  {
+          for (let role of rolesFromDB) {
+            this.roles[role.enumsortorder].name = role.enumlabel;
+            this.roles[role.enumsortorder].id = role.enumsortorder;
+          }
 
-    // Adjust task dates and set collapsed status
-    for (const task of project.tasks) {
-      task.start += this.serverClientTimeOffset;
-      task.end += this.serverClientTimeOffset;
-      task.collapsed = collTasks.indexOf(task.id) >= 0;
-    }
+          // Apply permissions from the loaded project
+          this.permissions.canWrite = project.canWrite;
+          this.permissions.canAdd = project.canAdd;
+          this.permissions.canWriteOnParent = project.canWriteOnParent;
+          this.permissions.cannotCloseTaskIfIssueOpen = project.cannotCloseTaskIfIssueOpen;
+          this.permissions.canAddIssue = project.canAddIssue;
+          this.permissions.canDelete = project.canDelete;
 
-    // Load tasks into GanttMaster
-    this.loadTasks(project.tasks, project.selectedRow);
-    this.deletedTaskIds = [];
+          // Refresh the button bar based on permissions
+          this.checkButtonPermissions();
 
-    // Handle saved zoom level
-    if (project.zoom) {
-      this.gantt.zoom = project.zoom;
-    } else {
-      this.gantt.shrinkBoundaries();
-      this.gantt.setBestFittingZoom();
-    }
+          // Set editable boundaries
+          this.minEditableDate = project.minEditableDate ? computeStart(project.minEditableDate) : -Infinity;
+          this.maxEditableDate = project.maxEditableDate ? computeEnd(project.maxEditableDate) : Infinity;
 
-    // End the transaction
-    this.endTransaction();
+          // Recover stored collapsed states
+          const collTasks = this.loadCollapsedTasks();
 
-    // Center Gantt on today's date
-    const self = this;
-    this.gantt.element.oneTime(200, () => {
-      self.gantt.centerOnToday();
-    });
+          // Adjust task dates and set collapsed status
+          for (const task of project.tasks) {
+            task.start += this.serverClientTimeOffset;
+            task.end += this.serverClientTimeOffset;
+            task.collapsed = collTasks.indexOf(task.id) >= 0;
+          }
+
+          // Load tasks into GanttMaster
+          this.loadTasksFromPostgreSQL(projectId);
+          this.deletedTaskIds = [];
+
+          // Handle saved zoom level
+          if (project.zoom) {
+            this.gantt.zoom = project.zoom;
+          } else {
+            this.gantt.shrinkBoundaries();
+            this.gantt.setBestFittingZoom();
+          }
+
+          // End the transaction
+          this.endTransaction();
+
+          // Center Gantt on today's date
+          const self = this;
+          this.gantt.element.oneTime(200, () => {
+            self.gantt.centerOnToday();
+          });
+        })
+      })
+    })
+  //   console.log(`Project ${projectId} loaded from database.`);
+  //   console.log('Project: ' + project);
+  //
+  //   if (!project) {
+  //     throw new Error("Failed to load project data from the database.");
+  //   }
+  //
+  //   // Set time offset from the server
+  //   this.serverClientTimeOffset = typeof project.serverTimeOffset !== "undefined"
+  //       ? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000)
+  //       : 0;
+  //
+  //   // Load resources and roles from the project
+  //   let resourcesFromDB = await getResourcesList();
+  //
+  //   for (let resource of resourcesFromDB) {
+  //     this.resources[resource.id].name = resource.name;
+  //     this.resources[resource.id].id = resource.id;
+  //     this.resources[resource.id].resourceType = resource.resource_type;
+  //     this.resources[resource.id].resourceDepartment = resource.resource_department;
+  //     this.resources[resource.id].email = resource.email;
+  //     this.resources[resource.id].username = resource.username;
+  //     this.resources[resource.id].isActive = resource.is_active;
+  //     this.resources[resource.id].workPattern = [resource.works_on_monday,
+  //       resource.works_on_tuesday,
+  //       resource.works_on_wednesday,
+  //       resource.works_on_thursday,
+  //       resource.works_on_friday,
+  //       resource.works_on_saturday,
+  //       resource.works_on_sunday];
+  //   }
+  //
+  //   // Pull in the data for the roles
+  //   let rolesFromDB = await getEnumerationTable("resourcetype");
+  //   for (let role of rolesFromDB) {
+  //     this.roles[role.enumsortorder].name = role.enumlabel;
+  //     this.roles[role.enumsortorder].id = role.enumsortorder;
+  //   }
+  //
+  //   // Apply permissions from the loaded project
+  //   this.permissions.canWrite = project.canWrite;
+  //   this.permissions.canAdd = project.canAdd;
+  //   this.permissions.canWriteOnParent = project.canWriteOnParent;
+  //   this.permissions.cannotCloseTaskIfIssueOpen = project.cannotCloseTaskIfIssueOpen;
+  //   this.permissions.canAddIssue = project.canAddIssue;
+  //   this.permissions.canDelete = project.canDelete;
+  //
+  //   // Refresh the button bar based on permissions
+  //   this.checkButtonPermissions();
+  //
+  //   // Set editable boundaries
+  //   this.minEditableDate = project.minEditableDate ? computeStart(project.minEditableDate) : -Infinity;
+  //   this.maxEditableDate = project.maxEditableDate ? computeEnd(project.maxEditableDate) : Infinity;
+  //
+  //   // Recover stored collapsed states
+  //   const collTasks = this.loadCollapsedTasks();
+  //
+  //   // Adjust task dates and set collapsed status
+  //   for (const task of project.tasks) {
+  //     task.start += this.serverClientTimeOffset;
+  //     task.end += this.serverClientTimeOffset;
+  //     task.collapsed = collTasks.indexOf(task.id) >= 0;
+  //   }
+  //
+  //   // Load tasks into GanttMaster
+  //   this.loadTasksFromPostgreSQL(projectId);
+  //   this.deletedTaskIds = [];
+  //
+  //   // Handle saved zoom level
+  //   if (project.zoom) {
+  //     this.gantt.zoom = project.zoom;
+  //   } else {
+  //     this.gantt.shrinkBoundaries();
+  //     this.gantt.setBestFittingZoom();
+  //   }
+  //
+  //   // End the transaction
+  //   this.endTransaction();
+  //
+  //   // Center Gantt on today's date
+  //   const self = this;
+  //   this.gantt.element.oneTime(200, () => {
+  //     self.gantt.centerOnToday();
+  //   });
+  //
+  //   return true;
+  // } catch (error) {
+  //   console.error("Error loading project from database:", error);
+  //   this.endTransaction();
+  //   return false;
 
     return true;
   } catch (error) {
@@ -637,7 +769,78 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId) {
   }
 };
 
-//TODO: Convert this to work with PostgreSQL database rather than a file
+/**
+ * Asynchronously loads tasks for a given project from PostgreSQL and initializes them in the GanttMaster object.
+ * The method sets up tasks, their properties, links, and periods, and adds tasks to editor and Gantt views.
+ *
+ * @param {number|string} projectID - The unique identifier of the project from which tasks should be loaded.
+ * @param {boolean} [activeOnly=true] - If true, only active tasks are loaded; otherwise, both active and inactive tasks are included.
+ * @return {Promise<void>} A promise that resolves once the tasks are successfully loaded and initialized.
+ */
+GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeOnly=true)
+{
+  var factory = new TaskFactory();
+  try
+  {
+    this.reset();
+  }
+  catch(e)
+  {
+    console.log('Error resetting GanttMaster:');
+    console.log(e);
+  }
+  var taskArr = await getProjectTasksFromServer(projectID, activeOnly);
+  // console.log('taskArr.rows:' + taskArr.rows);
+  for(var i = 0; i < taskArr.rows.length; i++)
+  {
+    var task = tasks[i];
+    console.log(`task[${i}]: ${tasks[i]}`);
+    var taskSetup = await getProjectTaskUserSetup(task.id);
+    var taskLevel = await getTaskAncestorCount(task.id);
+    var t = factory.build(task.id, task.title, 'misc', taskLevel, task.start_date, task.duration, taskSetup.collapsed);
+    task.master = this;
+    this.tasks.push(task)
+  }
+
+  for (var i = 0; i < this.tasks.length; i++) {
+    var task = this.tasks[i];
+    var numOfError = this.__currentTransaction && this.__currentTransaction.errors ? this.__currentTransaction.errors.length : 0;
+    //add Link collection in memory
+    while (!this.updateLinks(task)) {  // error on update links while loading can be considered as "warning". Can be displayed and removed in order to let transaction commits.
+      if (this.__currentTransaction && numOfError != this.__currentTransaction.errors.length) {
+        var msg = "ERROR:\n";
+        while (numOfError < this.__currentTransaction.errors.length) {
+          var err = this.__currentTransaction.errors.pop();
+          msg = msg + err.msg + "\n\n";
+        }
+        alert(msg);
+      }
+      this.__removeAllLinks(task, false);
+    }
+    if (!task.setPeriod(task.start, task.end)) {
+      alert(GanttMaster.messages.GANNT_ERROR_LOADING_DATA_TASK_REMOVED + "\n" + task.name );
+      //remove task from in-memory collection
+      this.tasks.splice(task.getRow(), 1);
+    } else {
+      //append task to editor
+      this.editor.addTask(task, null, true);
+      //append task to gantt
+      this.gantt.addTask(task);
+    }
+  }
+
+  //this.editor.fillEmptyLines();
+  //prof.stop();
+  // re-select old row if tasks is not empty
+  if (this.tasks && this.tasks.length > 0) {
+    selectedRow = selectedRow ? selectedRow : 0;
+    this.tasks[selectedRow].rowElement.click();
+  }
+
+  return true;
+}
+
+
 /**
  * Loads a project into the GanttMaster instance.
  *
@@ -709,10 +912,7 @@ GanttMaster.prototype.loadProject = function (project) {
   this.gantt.element.oneTime(200, function () {self.gantt.centerOnToday()});
 };
 
-GanttMaster.prototype.loadTasksFromPostgreSQL = function()
-{
 
-}
 
 /**
  * Loads a list of tasks into the Gantt chart and processes them for rendering.

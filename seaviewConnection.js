@@ -1,39 +1,5 @@
-//require('dotenv').config();
-
-
-// async function executeSQL(sqlQuery) {
-//     const {Client} = require('pg');
-//     const client = new Client({
-//         host: 'zeno', // database host
-//         port: 5432,  // database port
-//         user: 'nt_client', // database username
-//         password: 'nt_client', // database password
-//         database: 'postgres' // database name
-//     });
-//
-//     try {
-//         await client.connect();
-//         console.log('Connected to the database');
-//
-//         const result = await client.query(sqlQuery);
-//         console.log('Query executed successfully:', result.rows);
-//
-//         return result.rows; // returns the result of the query
-//     } catch (error) {
-//         console.error('Error executing query:', error);
-//         throw error; // rethrow the error for the caller
-//     } finally {
-//         try {
-//             await client.end();
-//             console.log('Database connection closed');
-//         } catch (err) {
-//             console.error('Error closing the database connection:', err);
-//         }
-//     }
-// }
-
 const {query} = require("express");
-const {getCurrentUserName} = require('./miscSupportFunctions');
+
 /**
  * Executes a SQL query on a PostgreSQL database.
  *
@@ -83,11 +49,16 @@ async function executeSQL(sqlQuery, queryParams = []) {
  * @return {Promise<*>} A promise resolving to the result of the executed SQL query.
  */
 async function getProjectData(projectId, includeIsActive = true) {
+    console.log("getProjectData: " + projectId);
     let prjQuery = "SELECT * FROM seaview.projects WHERE id = " + projectId;
     if (includeIsActive) {
         prjQuery += " AND is_active = true";
     }
-    return executeSQL(prjQuery);
+    console.log("prjQuery: " + prjQuery);
+    // return executeSQL(prjQuery);
+    let projectResponse = await executeSQL(prjQuery);
+    console.log("projectResponse: " + projectResponse.rows[0]);
+    return projectResponse.rows[0];
 }
 
 
@@ -105,121 +76,174 @@ async function getProjectTasks(projectId, includeIsActive=true)
         prjTskQuery += " AND is_active = true";
     }
     prjTskQuery += " ORDER BY start_date";
-    return executeSQL(prjTskQuery);
+    return await executeSQL(prjTskQuery);
 }
 
 
-/**
- * Populates and organizes task information for display in a Gantt chart, including hierarchical levels and parent-child relationships.
- *
- * @param {number|string} projectID The unique identifier for the project whose tasks are to be processed.
- * @return {Array<Object>} An array of root tasks, each including hierarchical information and child tasks.
- */
-function populateTasksAdditionalInformationForGanttChart(projectID)
-{
-    let projectRows = getProjectTasks(projectID).rows;
-    let taskMap = new Map();
-    projectRows.forEach(row => taskMap.set(row.id, {...row, level:0,children:[]}));
-    let rootTasks = [];
-    projectRows.forEach(row => {
-        if(row.parent_id){
-            let parentTask = taskMap.get(row.parent_id);
-            if(parentTask){
-                parentTask.children.push(taskMap.get(row.id));
-                taskMap.get(row.id).level = parentTask.level + 1;
-            }
-        } else
-        {
-            rootTasks.push(taskMap.get(row.id));
-        }
-    });
-    return Array.from(rootTasks.values());
-}
+// /**
+//  * Populates and organizes task information for display in a Gantt chart, including hierarchical levels and parent-child relationships.
+//  *
+//  * @param {number|string} projectID The unique identifier for the project whose tasks are to be processed.
+//  * @return {Array<Object>} An array of root tasks, each including hierarchical information and child tasks.
+//  */
+// async function populateTasksAdditionalInformationForGanttChart(projectID)
+// {
+//     let projectRows = getProjectTasks(projectID).rows;
+//     let taskMap = new Map();
+//     projectRows.forEach(row => taskMap.set(row.id, {...row, level:0,children:[]}));
+//     let rootTasks = [];
+//     projectRows.forEach(row => {
+//         if(row.parent_id){
+//             let parentTask = taskMap.get(row.parent_id);
+//             if(parentTask){
+//                 parentTask.children.push(taskMap.get(row.id));
+//                 taskMap.get(row.id).level = parentTask.level + 1;
+//             }
+//         } else
+//         {
+//             rootTasks.push(taskMap.get(row.id));
+//         }
+//     });
+//     return Array.from(rootTasks.values());
+// }
 
 
 /**
- * Retrieves the permissions for a user related to a specific project.
+ * Retrieves the project permissions for a specific user. If no permissions are found,
+ * a default permission entry is inserted into the database and returned.
  *
- * @param {number} projectID - The unique identifier of the project.
- * @return {Object} An object containing the user's permissions for the specified project.
+ * @param {number} projectID - The unique identifier of the project for which permissions are being retrieved.
+ * @param {number} userID - The unique identifier of the user whose permissions are being retrieved.
+ * @return {Promise<Object>} A promise that resolves to an object representing the user's project permissions.
  */
-function getUserProjectPermissions(projectID)
+async function getUserProjectPermissions(projectID, userID)
 {
-    let permissionsSQL = "SELECT * FROM seaview.gantt_permissions_store WHERE project_id = " + projectID;
-    let permissionsResponse = executeSQL(permissionsSQL);
+    console.log("getUserProjectPermissions projectID: " + projectID);
+    console.log("getUserProjectPermissions userID: " + userID);
+    let permissionsSQL = `SELECT * FROM seaview.gantt_permissions_store WHERE project_id = ${projectID} 
+        AND user_id = ${userID}`;
+    console.log("permissionsSQL: " + permissionsSQL);
+    let permissionsResponse = await executeSQL(permissionsSQL);
+    
+    if (permissionsResponse.rows.length === 0) {
+        console.log("No rows found. Inserting a default row.");
+        let defaultInsertSQL = `INSERT INTO seaview.gantt_permissions_store (project_id, user_id)
+                                VALUES (${projectID}, ${userID}) RETURNING *`;
+
+        permissionsResponse = await executeSQL(defaultInsertSQL);
+    }
     return permissionsResponse.rows[0];
 }
 
 
 /**
- * Retrieves the setup configuration for a user's project based on the provided project ID.
+ * Retrieves or initializes the user's project setup for the specified project, task, and user.
+ * If no setup exists, a default setup is inserted into the database.
  *
- * @param {number|string} projectID - The ID of the project for which the setup configuration is to be retrieved.
- * @return {Object} The configuration setup for the specified user's project.
+ * @param {number} projectID - The ID of the project for which the setup is being retrieved.
+ * @param {number} taskID - The ID of the task associated with the project setup.
+ * @param {number} userID - The ID of the user for whom the setup is being retrieved or created.
+ * @return {Promise<Object>} A promise that resolves to the user's project setup object.
  */
-function getUserProjectSetup(projectID)
+async function getUserProjectSetup(projectID, taskID, userID)
 {
-    let userSetupSQL = "SELECT * FROM seaview.gantt_user_project_view_options WHERE project_id = " + projectID;
-    return executeSQL(userSetupSQL).rows[0];
+    console.log("getUserProjectSetup projectID: " + projectID);
+    console.log("getUserProjectSetup userID: " + userID);
+    let userSetupSQL = "SELECT * FROM seaview.gantt_user_project_view_options WHERE project_id = " + projectID +
+        " AND user_id = " + userID + " AND task_id = " + taskID;
+    let userSetupResponse = await executeSQL(userSetupSQL);
+    if (userSetupResponse.rows.length === 0)
+    {
+        console.log("No rows found in gantt_user_project_view_options. Inserting a default row.");
+        let defaultInsertSQL = `INSERT INTO seaview.gantt_user_project_view_options (project_id, task_id, user_id)
+                                 VALUES (${projectID}, ${taskID}, ${userID}) RETURNING *`;
+        userSetupResponse = await executeSQL(defaultInsertSQL);
+    }
+    return userSetupResponse.rows[0];
+}
+
+async function getProjectUserSetup(projectID, userID)
+{
+    console.log("getProjectUserSetup projectID: " + projectID);
+    console.log("getProjectUserSetup userID: " + userID);
+    let userSetupSQL = `SELECT * FROM seaview.gantt_user_project_view_options WHERE project_id = ${projectID}
+         AND user_id = ${userID}`;
+    let userSetupResponse = await executeSQL(userSetupSQL);
+    if (userSetupResponse.rows.length === 0)
+    {
+        console.log("No rows found in gantt_user_project_view_options. Inserting a default row.");
+        let defaultInsertSQL = `INSERT INTO seaview.gantt_user_project_view_options (project_id, user_id)
+                                        VALUES (${projectID}, ${userID}) RETURNING *`;
+        userSetupResponse = await executeSQL(defaultInsertSQL);
+    }
+    return userSetupResponse.rows[0];
 }
 
 
 /**
- * Generates a JSON representation of the project, including its details, permissions, and associated tasks.
+ * Retrieves the project details, permissions, and user setup for a specified project
+ * and user, and generates a JSON representation of the project data.
  *
- * @param {string|number} projectID - The unique identifier of the project for which JSON data is to be generated.
- * @return {Object} A JSON object containing project details and permissions, including project ID, name, start date, activity status, and user permissions.
+ * @param {number} projectID - The unique identifier for the project.
+ * @param {number} userID - The unique identifier for the user.
+ * @return {Promise<Object>} A promise that resolves to the project JSON object containing
+ * project details, permissions, and user-specific setup information.
  */
-function getProjectJSON(projectID)
+async function getProjectJSON(projectID, userID)
 {
-    let projectTaskArray = populateTasksAdditionalInformationForGanttChart(projectID);
-    let projectDetails = getProjectData(projectID);
-    let projectPermissions = getUserProjectPermissions(projectID);
-    let userSetup = getUserProjectSetup(projectID);
+    // let projectTaskArray = populateTasksAdditionalInformationForGanttChart(projectID);
+    console.log("Starting getProjectJSON:")
+    console.log("projectID: " + projectID);
+    console.log("userID: " + userID);
+    let projectDetails = await getProjectData(projectID);
+    let projectPermissions = await getUserProjectPermissions(projectID, userID);
+    let userSetup = await getProjectUserSetup(projectID, userID);
 
     let projectJSON = {
         project:
-        {
-            id: projectID,
-            name: projectDetails.title,
-            start_date: projectDetails.start_date ? new Date(projectDetails.start_date).getTime() : null,
-            is_active: projectDetails.is_active,
-            canWrite: projectPermissions.write_permission,
-            canAdd: projectPermissions.add_permission,
-            canWriteOnParent: projectPermissions.write_on_parent_permission,
-            cannotCloseTaskIfIssueOpen: projectPermissions.cannot_close_task_if_issue_open_permission,
-            canAddIssue: projectPermissions.can_add_permission,
-            canDelete: projectPermissions.can_delete_permission,
-            minEditableDate: projectDetails.minimum_date,
-            maxEditableDate: projectDetails.maximum_date,
-            zoom: userSetup.zoom_level
-        },
-        tasks: []
+            {
+                id: projectID,
+                name: projectDetails.title,
+                start_date: projectDetails.start_date ? new Date(projectDetails.start_date).getTime() : null,
+                is_active: projectDetails.is_active,
+                canWrite: projectPermissions.write_permission,
+                canAdd: projectPermissions.add_permission,
+                canWriteOnParent: projectPermissions.write_on_parent_permission,
+                cannotCloseTaskIfIssueOpen: projectPermissions.cannot_close_task_if_issue_open_permission,
+                canAddIssue: projectPermissions.can_add_permission,
+                canDelete: projectPermissions.can_delete_permission,
+                minEditableDate: projectDetails.minimum_date,
+                maxEditableDate: projectDetails.maximum_date,
+                zoom: userSetup.zoom_level
+            }
+        // },
+        // tasks: []
     }
 
-    for (let i = 0; i < projectTaskArray.length; i++) {
-        var task = projectTaskArray[i];
-        var t = factory.build(
-            task.id,
-            task.name,
-            task.code,
-            task.level,
-            task.start,
-            task.duration,
-            task.collapsed
-        );
-
-        for (var key in task) {
-            if (key !== "end" && key !== "start")
-                t[key] = task[key]; // copy additional properties
-        }
-
-        task = t;
-        task.master = this;
-
-        // Push the final task object into projectJSON.tasks
-        projectJSON.tasks.push(task);
-    }
+    // for (let i = 0; i < projectTaskArray.length; i++) {
+    //     var task = projectTaskArray[i];
+    //     var t = factory.build(
+    //         task.id,
+    //         task.name,
+    //         task.code,
+    //         task.level,
+    //         task.start,
+    //         task.duration,
+    //         task.collapsed
+    //     );
+    //
+    //     for (var key in task) {
+    //         if (key !== "end" && key !== "start")
+    //             t[key] = task[key]; // copy additional properties
+    //     }
+    //
+    //     task = t;
+    //     task.master = this;
+    //
+    //     // Push the final task object into projectJSON.tasks
+    //     projectJSON.tasks.push(task);
+    // }
+    console.log("projectJSON: " + JSON.stringify(projectJSON));
     return projectJSON;
 }
 
@@ -230,7 +254,7 @@ function getProjectJSON(projectID)
  * @param {boolean} [includeIsActive=true] - A flag indicating whether to include only active projects.
  * @returns {Promise<Array>} A promise that resolves to the list of projects.
  */
-function getProjectList(includeIsActive = true) {
+async function getProjectList(includeIsActive = true) {
     let projectListSQL = "SELECT * FROM seaview.projects";
     if (includeIsActive) {
         projectListSQL += " WHERE is_active = true";
@@ -245,7 +269,7 @@ function getProjectList(includeIsActive = true) {
  * @param {boolean} [includeIsActive=true] - A flag indicating whether to include only active programs.
  * @returns {Promise<Array>} A promise that resolves to the list of programs.
  */
-function getProgramList(includeIsActive = true) {
+async function getProgramList(includeIsActive = true) {
     let programListSQL = "SELECT * FROM seaview.programmes";
     if (includeIsActive) {
         programListSQL += " WHERE is_active = true";
@@ -260,7 +284,7 @@ function getProgramList(includeIsActive = true) {
  * @param {boolean} [includeIsActive=true] - A flag indicating whether to include only active portfolios.
  * @returns {Promise<Array>} A promise that resolves to the list of portfolios.
  */
-function getPortfolioList(includeIsActive = true) {
+async function getPortfolioList(includeIsActive = true) {
     let portfolioListSQL = "SELECT * FROM seaview.portfolios";
     if (includeIsActive) {
         portfolioListSQL += " WHERE is_active = true";
@@ -277,7 +301,7 @@ function getPortfolioList(includeIsActive = true) {
  * @param {boolean} [includeIsActive=true] - A flag indicating whether to include only active projects.
  * @returns {Promise<Array>} A promise that resolves to the list of projects for the portfolio.
  */
-function getProjectListForPortfolio(portfolioID, includeIsActive = true) {
+async function getProjectListForPortfolio(portfolioID, includeIsActive = true) {
     let projectListSQL = "SELECT projects FROM seaview.portfolios WHERE portfolio_id = " + portfolioID;
     if (includeIsActive) {
         projectListSQL += " AND is_active = true";
@@ -293,7 +317,7 @@ function getProjectListForPortfolio(portfolioID, includeIsActive = true) {
  * @param {boolean} [includeIsActive=true] - A flag indicating whether to include only active projects.
  * @returns {Promise<Array>} A promise that resolves to the list of projects for the program.
  */
-function getProjectListForProgramme(programmeID, includeIsActive = true) {
+async function getProjectListForProgramme(programmeID, includeIsActive = true) {
     let projectListSQL = "SELECT projects FROM seaview.programmes WHERE programme_id = " + programmeID;
     if (includeIsActive) {
         projectListSQL += " AND is_active = true";
@@ -309,7 +333,7 @@ function getProjectListForProgramme(programmeID, includeIsActive = true) {
  * @param {boolean} [includeIsActive=true] - A flag indicating whether to include only active programs.
  * @returns {Promise<Array>} A promise that resolves to the list of programs for the portfolio.
  */
-function getProgrammeListForPortfolio(projectID, includeIsActive = true) {
+async function getProgrammeListForPortfolio(projectID, includeIsActive = true) {
     let programmeListSQL = "SELECT programmes FROM seaview.portfolios WHERE portfolio_id = " + projectID;
     if (includeIsActive) {
         programmeListSQL += " AND is_active = true";
@@ -324,9 +348,9 @@ function getProgrammeListForPortfolio(projectID, includeIsActive = true) {
  * @param {number} userID - The unique identifier of the user.
  * @returns {Object|null} An object containing the user's project view options or null if no data is found.
  */
-function getUserProjectViewOptions(userID) {
-    const query = `
-        SELECT user_id, project_id, zoom_level, start_date 
+async function getUserProjectViewOptions(userID)
+{
+    const query = `SELECT user_id, project_id, zoom_level, start_date 
         FROM seaview.gantt_user_project_view_options 
         WHERE user_id = ${userID}`;
 
@@ -483,19 +507,6 @@ async function getResourceID(username)
         throw error;
     }
 }
-
-
-
-
-// async function addTaskChange(taskID, changedBy, oldValues, newValues)
-// {
-//     const query = `
-//         INSERT INTO seaview.task_changes (task_id, change_date, changed_by, old_values_json, new_value_json)
-//         VALUES ($1, NOW(), $2, $3, $4)
-//         RETURNING *;
-//     `;
-// }
-
 
 /**
  * Updates a project's details in the 'projects' table based on all associated tasks.
@@ -904,24 +915,124 @@ async function getProgrammeContents(programID)
     }
 }
 
-async function getTask(taskID)
-{
+/**
+ * Retrieves a task from the 'tasks' table based on the provided task ID.
+ *
+ * @param {number} taskID - The ID of the task to retrieve.
+ * @returns {Promise<Object>} A promise that resolves to the task object if found.
+ * @throws {Error} Will throw an error if the task is not found or if the database operation fails.
+ */
+async function getTask(taskID) {
     const query = `SELECT * FROM seaview.tasks WHERE id = ${taskID}`;
-    try
-    {
+    try {
         const result = await executeSQL(query);
         if (result.rows.length > 0) {
             return result.rows[0];
         } else {
             throw new Error(`Task with ID ${taskID} not found.`);
         }
-    }
-    catch(error)
-    {
+    } catch (error) {
         console.error("Error getting task:", error);
         throw error;
     }
 }
+
+/**
+ * Retrieves the labels and sort order of an enumeration type from the database.
+ *
+ * @param {string} typeName - The name of the enumeration type to retrieve.
+ * @returns {Promise<Object[]>} A promise that resolves to an array of objects, each representing an enumeration label and its sort order.
+ * @throws Will throw an error if the enumeration type is not found or if the database operation fails.
+ */
+async function getEnumerationTable(typeName) {
+    const query = `SELECT enumlabel, enumsortorder
+                    FROM pg_enum
+                    JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+                    WHERE typname = '${typeName}';`;
+    try {
+        const result = await executeSQL(query);
+        if (result.rows.length > 0) {
+            return result.rows;
+        } else {
+            throw new Error(`Enumeration with type ${typeName} not found.`);
+        }
+    } catch (error) {
+        console.error("Error getting enumeration:", error);
+        throw error;
+    }
+}
+
+async function getResourcesList(){
+    const query = `SELECT * FROM seaview.resources`;
+    try
+    {
+        const result = await executeSQL(query);
+        if (result.rows.length > 0) {
+            return result;
+        } else {
+            throw new Error(`No resources found.`);
+        }
+    }
+    catch(error)
+    {
+        console.error("Error getting resources list:", error);
+        throw error;
+    }
+}
+
+async function getProjectTaskUserSetup(taskID)
+{
+    const query = `SELECT * FROM seaview.gantt_user_project_tasks_view_options
+                            WHERE task_id = ${taskID}`;
+    try
+    {
+        const result = await executeSQL(query);
+        if (result.rows.length > 0) {
+            return result.rows;
+        } else {
+            throw new Error(`No tasks found.`);
+        }
+    } catch (error) {
+        console.error("Error getting project task user setup:", error);
+        throw error;
+    }
+}
+
+
+/**
+ * Finds the number of ancestors for a given task through parent_task_id until the top task is reached.
+ *
+ * @param {number} taskID - The ID of the task whose ancestors are to be counted.
+ * @returns {Promise<number>} A promise that resolves to the number of ancestors.
+ */
+async function countTaskAncestors(taskID) {
+    const query = `
+        WITH RECURSIVE task_hierarchy AS (
+            SELECT id, parent_id
+            FROM seaview.tasks
+            WHERE id = ${taskID}
+            UNION ALL
+            SELECT t.id, t.parent_id
+            FROM seaview.tasks t
+            INNER JOIN task_hierarchy th ON t.id = th.parent_id
+        )
+        SELECT COUNT(*) - 1 AS ancestor_count FROM task_hierarchy;
+    `;
+
+    try {
+        const result = await executeSQL(query);
+
+        if (result.rows.length === 0) {
+            throw new Error(`Task with ID ${taskID} not found.`);
+        }
+
+        return result.rows[0].ancestor_count;
+    } catch (error) {
+        console.error("Error counting task ancestors:", error);
+        throw error;
+    }
+}
+
 
 //Export functions
 module.exports = {
@@ -949,7 +1060,12 @@ module.exports = {
     getProjectTasks,
     getResourceID,
     getTask,
-    getMaxTaskChangeID
+    getMaxTaskChangeID,
+    getEnumerationTable,
+    getResourcesList,
+    getProjectJSON,
+    getProjectTaskUserSetup,
+    countTaskAncestors
 }
 
 

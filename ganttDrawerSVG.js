@@ -1169,7 +1169,7 @@ $.fn.dragExtedSVG = function (svg, opt) {
           } else  if (options.canResize && Math.abs(posx-x1)<=options.resizeZoneWidth) {
             //store offset mouse x1
             offsetMouseRect = parseFloat(target.attr("x"));
-            target.attr("oldw", target.attr("width")); //todo controllare se è ancora usato oldw
+            target.attr("oldw", target.attr("width")); //TODO: Check if "oldw" is still being used
 
             var one = true;
 

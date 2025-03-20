@@ -126,6 +126,11 @@ Number.currencyFormat = "###,##0.00";
 var millisInWorkingDay =28800000;
 var workingDaysPerWeek =5;
 
+/* TODO: Create an equivalent of isHoliday which allows for the dynamic work week capability we need in Next Tuesday
+ * Needs to look at the resources for a task and if any of them do not work on a particular day switch it off
+ */
+
+
 function isHoliday(date) {
   var friIsHoly =false;
   var satIsHoly =true;

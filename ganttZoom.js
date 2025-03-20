@@ -48,6 +48,9 @@
     self.zoomDrawers[zoom].computedScaleX=600/millisFromString(zoom);
   }
 
+  /* TODO: Need to sort out how to dynamically show the effect of working patterns on the gantt chart
+
+   */
 
   //-----------------------------  3 DAYS  600px-----------------------------
   _addZoom("3d", {

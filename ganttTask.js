@@ -21,6 +21,9 @@
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
+
+
 /**
  * TaskFactory is a constructor function that provides functionality to
  * create and manage Task instances.
@@ -63,7 +66,7 @@ function Task(id, name, code, level, start, end, duration, collapsed) {
   this.description = "";
   this.code = code;
   this.level = level;
-  this.status = "STATUS_UNDEFINED";
+  this.status = "BACKLOG";
   this.depends = "";
 
   this.start = start;
@@ -81,6 +84,9 @@ function Task(id, name, code, level, start, end, duration, collapsed) {
   this.canAdd = true;
   this.canDelete = true;
   this.canAddIssue = true;
+  
+  /* Status of last database interaction */
+  this.lastDBInteraction = null;
 
   this.rowElement; //row editor html element
   this.ganttElement; //gantt html element
@@ -105,6 +111,9 @@ Task.prototype.clone = function () {
     }
   return ret;
 };
+
+
+// TODO: ensure this works with the database - also work out how assignments work with tasks
 
 /**
  * Retrieves a string representation of all assignments related to the task.
@@ -179,7 +188,7 @@ Task.prototype.setPeriod = function (start, end) {
   };
 
 
-  //compute legal start/end //todo mossa qui R&S 30/3/2016 perchè altrimenti il calcolo della durata, che è stato modificato sommando giorni, sbaglia
+  //compute legal start/end //todo moved here R&S 30/3/2016 because otherwise the duration calculation, which was modified by adding days, fails
   start = computeStart(start);
   end=computeEnd(end);
 
@@ -396,6 +405,9 @@ Task.prototype.moveTo = function (start, ignoreMilestones, propagateToInferiors)
   return true;
 };
 
+/** TODO: Need to figure out how to modify milestones in the gantt chart to be 0 duration markers not directly associated
+ ** with a task
+ */
 
 /**
  * Checks whether the constraints for all milestones of the task are satisfied.
@@ -578,6 +590,8 @@ Task.prototype.getChildrenBoudaries = function () {
   return({start:newStart,end:newEnd})
 }
 
+/* *TODO: Need to change this to match the database version of statuses
+
 //<%---------- CHANGE STATUS ---------------------- --%>
 /**
  * Changes the status of the task to the specified value.
@@ -591,7 +605,7 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
   //console.debug("changeStatus: "+this.name+" from "+this.status+" -> "+newStatus);
 
   var cone = this.getDescendant();
-
+  
   /**
    * Propagates the status of a task based on its new status, dependencies, and parent-child relationships.
    * Handles cascading status changes across tasks and their relationships (e.g., parent/child, superior/inferior).
@@ -607,160 +621,202 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
   function propagateStatus(task, newStatus, manuallyChanged, propagateFromParent, propagateFromChildren) {
     //console.debug("propagateStatus",task.name, task.status,newStatus, manuallyChanged, propagateFromParent, propagateFromChildren);
     var oldStatus = task.status;
-
+    var parent = task.getParent();
     //no changes exit
     if (newStatus == oldStatus && !forceStatusCheck) {
+      return true;
+    }
+
+    /* EF Update
+    * Specify certain status changes that shouldn't be propagated soexit function
+    * */
+    if (newStatus == "BLOCKED" || newStatus == "BACKLOG") {
       return true;
     }
 
     var todoOk = true;
     task.status = newStatus;
 
-
-    //xxxx -> STATUS_DONE            may activate dependent tasks, both suspended and undefined. Will set to done all children.
-    //STATUS_FAILED -> STATUS_DONE   do nothing if not forced by hand
-    if (newStatus == "STATUS_DONE") {
-
-      // cannot close task if open issues
-      if (task.master.permissions.cannotCloseTaskIfIssueOpen && task.openIssues > 0) {
-        task.master.setErrorOnTransaction(GanttMaster.messages["CANNOT_CLOSE_TASK_IF_OPEN_ISSUE"] + " \"" + task.name + "\"");
-        return false;
+    
+// If the new status is "IN_PROGRESS", check the parent status.
+    if (newStatus === "IN_PROGRESS") {      
+      if (parent && parent.status === "BACKLOG") {
+        parent.status = "IN_PROGRESS";
       }
+    }
 
 
-      if ((manuallyChanged || oldStatus != "STATUS_FAILED")) { //cannot set failed task as closed for cascade - only if changed manually
+    if (newStatus === "COMPLETE") {
+      var allChildrenComplete = true;
 
-        //can be closed only if superiors are already done
-        var sups = task.getSuperiors();
-        for (var i = 0; i < sups.length; i++) {
-          if (sups[i].from.status != "STATUS_DONE" && cone.indexOf(sups[i].from)<0) { // è un errore se un predecessore è non chiuso ed è fuori dal cono
-            if (manuallyChanged || propagateFromParent)  //genere un errore bloccante se è cambiato a mano o se il cambiamento arriva dal parent ed ho una dipendenza fuori dal cono (altrimenti avrei un attivo figlio di un chiuso
-              task.master.setErrorOnTransaction(GanttMaster.messages["GANTT_ERROR_DEPENDS_ON_OPEN_TASK"] + "\n\"" + sups[i].from.name + "\" -> \"" + task.name + "\"");
-            todoOk = false;
+      // Get all siblings (parent's children) and check their statuses
+      if (parent) {
+        var siblings = parent.getChildren();
+        for (var i = 0; i < siblings.length; i++) {
+          if (siblings[i].status !== "COMPLETE") {
+            allChildrenComplete = false;
             break;
           }
         }
 
-        if (todoOk) {
-          // set progress to 100% if needed by settings
-          if (task.master.set100OnClose && !task.progressByWorklog ){
-            task.progress=100;
-          }
-
-          //set children as done
-          propagateStatusToChildren(task,newStatus,false);
-
-          //set inferiors as active
-          propagateStatusToInferiors( task.getInferiors(), "STATUS_ACTIVE");
+        // If all sibling tasks are complete, set the parent's status to Complete
+        if (allChildrenComplete) {
+          parent.status = "COMPLETE";
         }
-      } else { // una propagazione tenta di chiudere un task fallito
-        todoOk = false;
       }
-
-
-      //  STATUS_UNDEFINED -> STATUS_ACTIVE       all children become active, if they have no dependencies.
-      //  STATUS_SUSPENDED -> STATUS_ACTIVE       sets to active all children and their descendants that have no inhibiting dependencies.
-      //  STATUS_WAITING -> STATUS_ACTIVE         sets to active all children and their descendants that have no inhibiting dependencies.
-      //  STATUS_DONE -> STATUS_ACTIVE            all those that have dependencies must be set to suspended.
-      //  STATUS_FAILED -> STATUS_ACTIVE          nothing happens: child statuses must be reset by hand.
-    } else if (newStatus == "STATUS_ACTIVE") {
-
-      if (manuallyChanged || (oldStatus != "STATUS_FAILED" && oldStatus != "STATUS_SUSPENDED")) { //cannot set failed or suspended task as active for cascade - only if changed manually
-
-        //can be active only if superiors are already done, not only on this task, but also on ancestors superiors
-        var sups = task.getSuperiors();
-
-        for (var i = 0; i < sups.length; i++) {
-          if (sups[i].from.status != "STATUS_DONE") {
-            if (manuallyChanged || propagateFromChildren)
-              task.master.setErrorOnTransaction(GanttMaster.messages["GANTT_ERROR_DEPENDS_ON_OPEN_TASK"] + "\n\"" + sups[i].from.name + "\" -> \"" + task.name + "\"");
-            todoOk = false;
-            break;
-          }
-        }
-
-        // check if parent is already active
-        if (todoOk) {
-          var par = task.getParent();
-          if (par && par.status != "STATUS_ACTIVE") {
-            // todoOk = propagateStatus(par, "STATUS_ACTIVE", false, false, true); //todo abbiamo deciso di non far propagare lo status verso l'alto
-            todoOk = false;
-          }
-        }
-
-
-        if (todoOk) {
-          if (oldStatus == "STATUS_UNDEFINED" || oldStatus == "STATUS_SUSPENDED" || oldStatus == "STATUS_WAITING" ) {
-            //set children as active
-            propagateStatusToChildren(task,newStatus,true);
-          }
-
-          //set inferiors as suspended
-          //propagateStatusToInferiors( task.getInferiors(), "STATUS_SUSPENDED");
-          propagateStatusToInferiors( task.getInferiors(), "STATUS_WAITING");
-        }
-      } else {
-        todoOk = false;
-      }
-
-      // xxxx -> STATUS_WAITING       all active children and their active descendants become waiting. when not failed or forced
-    } else if (newStatus == "STATUS_WAITING" ) {
-      if (manuallyChanged || oldStatus != "STATUS_FAILED") { //cannot set failed task as waiting for cascade - only if changed manually
-
-        //check if parent if not active
-        var par = task.getParent();
-        if (par && (par.status != "STATUS_ACTIVE" && par.status != "STATUS_SUSPENDED" && par.status != "STATUS_WAITING")) {
-          todoOk = false;
-        }
-
-
-        if (todoOk) {
-          //set children as STATUS_WAITING
-          propagateStatusToChildren(task, "STATUS_WAITING", true);
-
-          //set inferiors as STATUS_WAITING
-          propagateStatusToInferiors( task.getInferiors(), "STATUS_WAITING");
-        }
-      } else {
-        todoOk = false;
-      }
-
-      // xxxx -> STATUS_SUSPENDED       all active children and their active descendants become suspended. when not failed or forced
-    } else if (newStatus == "STATUS_SUSPENDED" ) {
-      if (manuallyChanged || oldStatus != "STATUS_FAILED") { //cannot set failed task as closed for cascade - only if changed manually
-
-        //check if parent if not active
-        var par = task.getParent();
-        if (par && (par.status != "STATUS_ACTIVE" && par.status != "STATUS_SUSPENDED" && par.status != "STATUS_WAITING")) {
-          todoOk = false;
-        }
-
-
-        if (todoOk) {
-          //set children as STATUS_SUSPENDED
-          propagateStatusToChildren(task, "STATUS_SUSPENDED", true);
-
-          //set inferiors as STATUS_SUSPENDED
-          propagateStatusToInferiors( task.getInferiors(), "STATUS_SUSPENDED");
-        }
-      } else {
-        todoOk = false;
-      }
-
-      // xxxx -> STATUS_FAILED children and dependent failed
-      // xxxx -> STATUS_UNDEFINED  children and dependant become undefined.
-    } else if (newStatus == "STATUS_FAILED" || newStatus == "STATUS_UNDEFINED") {
-
-      //set children as failed or undefined
-      propagateStatusToChildren(task,newStatus,false);
-
-      //set inferiors as failed
-      propagateStatusToInferiors( task.getInferiors(), newStatus);
     }
-    if (!todoOk) {
-      task.status = oldStatus;
-      //console.debug("status rolled back: "+task.name + " to " + oldStatus);
+
+
+// If the new status is "CANCELLED", "RETIRED", or "DEFERRED", propagate the status to children
+    if (newStatus === "CANCELLED" || newStatus === "RETIRED" || newStatus === "DEFERRED") {
+      propagateStatusToChildren(task, newStatus, false);
     }
+    
+    /* Commented Out Old functionality for reference */
+    // //xxxx -> STATUS_DONE            may activate dependent tasks, both suspended and undefined. Will set to done all children.
+    // //STATUS_FAILED -> STATUS_DONE   do nothing if not forced by hand
+    // if (newStatus == "STATUS_DONE") {
+    //
+    //   // cannot close task if open issues
+    //   if (task.master.permissions.cannotCloseTaskIfIssueOpen && task.openIssues > 0) {
+    //     task.master.setErrorOnTransaction(GanttMaster.messages["CANNOT_CLOSE_TASK_IF_OPEN_ISSUE"] + " \"" + task.name + "\"");
+    //     return false;
+    //   }
+    //
+    //
+    //   if ((manuallyChanged || oldStatus != "STATUS_FAILED")) { //cannot set failed task as closed for cascade - only if changed manually
+    //
+    //     //can be closed only if superiors are already done
+    //     var sups = task.getSuperiors();
+    //     for (var i = 0; i < sups.length; i++) {
+    //       if (sups[i].from.status != "STATUS_DONE" && cone.indexOf(sups[i].from)<0) { // it is an error if a predecessor is not closed and is outside the cone
+    //         if (manuallyChanged || propagateFromParent)  //generate a blocking error if changed manually or if the change comes from the parent and I have a dependency outside the scope (otherwise I would have an active child of a closed one)
+    //           task.master.setErrorOnTransaction(GanttMaster.messages["GANTT_ERROR_DEPENDS_ON_OPEN_TASK"] + "\n\"" + sups[i].from.name + "\" -> \"" + task.name + "\"");
+    //         todoOk = false;
+    //         break;
+    //       }
+    //     }
+    //
+    //     if (todoOk) {
+    //       // set progress to 100% if needed by settings
+    //       if (task.master.set100OnClose && !task.progressByWorklog ){
+    //         task.progress=100;
+    //       }
+    //
+    //       //set children as done
+    //       propagateStatusToChildren(task,newStatus,false);
+    //
+    //       //set inferiors as active
+    //       propagateStatusToInferiors( task.getInferiors(), "STATUS_ACTIVE");
+    //     }
+    //   } else { // a propagation attempts to close a failed task
+    //     todoOk = false;
+    //   }
+    //
+    //
+    //   //  STATUS_UNDEFINED -> STATUS_ACTIVE       all children become active, if they have no dependencies.
+    //   //  STATUS_SUSPENDED -> STATUS_ACTIVE       sets to active all children and their descendants that have no inhibiting dependencies.
+    //   //  STATUS_WAITING -> STATUS_ACTIVE         sets to active all children and their descendants that have no inhibiting dependencies.
+    //   //  STATUS_DONE -> STATUS_ACTIVE            all those that have dependencies must be set to suspended.
+    //   //  STATUS_FAILED -> STATUS_ACTIVE          nothing happens: child statuses must be reset by hand.
+    // } else if (newStatus == "STATUS_ACTIVE") {
+    //
+    //   if (manuallyChanged || (oldStatus != "STATUS_FAILED" && oldStatus != "STATUS_SUSPENDED")) { //cannot set failed or suspended task as active for cascade - only if changed manually
+    //
+    //     //can be active only if superiors are already done, not only on this task, but also on ancestors superiors
+    //     var sups = task.getSuperiors();
+    //
+    //     for (var i = 0; i < sups.length; i++) {
+    //       if (sups[i].from.status != "STATUS_DONE") {
+    //         if (manuallyChanged || propagateFromChildren)
+    //           task.master.setErrorOnTransaction(GanttMaster.messages["GANTT_ERROR_DEPENDS_ON_OPEN_TASK"] + "\n\"" + sups[i].from.name + "\" -> \"" + task.name + "\"");
+    //         todoOk = false;
+    //         break;
+    //       }
+    //     }
+    //
+    //     // check if parent is already active
+    //     if (todoOk) {
+    //       var par = task.getParent();
+    //       if (par && par.status != "STATUS_ACTIVE") {
+    //         // todoOk = propagateStatus(par, "STATUS_ACTIVE", false, false, true); //TODO we decided not to propagate the status upwards
+    //         todoOk = false;
+    //       }
+    //     }
+    //
+    //
+    //     if (todoOk) {
+    //       if (oldStatus == "STATUS_UNDEFINED" || oldStatus == "STATUS_SUSPENDED" || oldStatus == "STATUS_WAITING" ) {
+    //         //set children as active
+    //         propagateStatusToChildren(task,newStatus,true);
+    //       }
+    //
+    //       //set inferiors as suspended
+    //       //propagateStatusToInferiors( task.getInferiors(), "STATUS_SUSPENDED");
+    //       propagateStatusToInferiors( task.getInferiors(), "STATUS_WAITING");
+    //     }
+    //   } else {
+    //     todoOk = false;
+    //   }
+    //
+    //   // xxxx -> STATUS_WAITING       all active children and their active descendants become waiting. when not failed or forced
+    // } else if (newStatus == "STATUS_WAITING" ) {
+    //   if (manuallyChanged || oldStatus != "STATUS_FAILED") { //cannot set failed task as waiting for cascade - only if changed manually
+    //
+    //     //check if parent if not active
+    //     var par = task.getParent();
+    //     if (par && (par.status != "STATUS_ACTIVE" && par.status != "STATUS_SUSPENDED" && par.status != "STATUS_WAITING")) {
+    //       todoOk = false;
+    //     }
+    //
+    //
+    //     if (todoOk) {
+    //       //set children as STATUS_WAITING
+    //       propagateStatusToChildren(task, "STATUS_WAITING", true);
+    //
+    //       //set inferiors as STATUS_WAITING
+    //       propagateStatusToInferiors( task.getInferiors(), "STATUS_WAITING");
+    //     }
+    //   } else {
+    //     todoOk = false;
+    //   }
+    //
+    //   // xxxx -> STATUS_SUSPENDED       all active children and their active descendants become suspended. when not failed or forced
+    // } else if (newStatus == "STATUS_SUSPENDED" ) {
+    //   if (manuallyChanged || oldStatus != "STATUS_FAILED") { //cannot set failed task as closed for cascade - only if changed manually
+    //
+    //     //check if parent if not active
+    //     var par = task.getParent();
+    //     if (par && (par.status != "STATUS_ACTIVE" && par.status != "STATUS_SUSPENDED" && par.status != "STATUS_WAITING")) {
+    //       todoOk = false;
+    //     }
+    //
+    //
+    //     if (todoOk) {
+    //       //set children as STATUS_SUSPENDED
+    //       propagateStatusToChildren(task, "STATUS_SUSPENDED", true);
+    //
+    //       //set inferiors as STATUS_SUSPENDED
+    //       propagateStatusToInferiors( task.getInferiors(), "STATUS_SUSPENDED");
+    //     }
+    //   } else {
+    //     todoOk = false;
+    //   }
+    //
+    //   // xxxx -> STATUS_FAILED children and dependent failed
+    //   // xxxx -> STATUS_UNDEFINED  children and dependant become undefined.
+    // } else if (newStatus == "STATUS_FAILED" || newStatus == "STATUS_UNDEFINED") {
+    //
+    //   //set children as failed or undefined
+    //   propagateStatusToChildren(task,newStatus,false);
+    //
+    //   //set inferiors as failed
+    //   propagateStatusToInferiors( task.getInferiors(), newStatus);
+    // }
+    // if (!todoOk) {
+    //   task.status = oldStatus;
+    //   //console.debug("status rolled back: "+task.name + " to " + oldStatus);
+    // }
 
     return todoOk;
   }
@@ -784,13 +840,16 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
    *
    * @param {Object} task The parent task whose child tasks' statuses need to be updated.
    * @param {string} newStatus The new status to propagate to the child tasks.
-   * @param {boolean} skipClosedTasks Indicates whether or not to skip tasks that are already marked as "STATUS_DONE".
+   * @param {boolean} skipClosedTasks Indicates whether or not to skip tasks that are already marked as "COMPLETE"/"CANCELLED"/"DEFERRED"/"RETIRED".
    * @return {void} No return value, as this function modifies the statuses of child tasks directly.
    */
   function propagateStatusToChildren(task, newStatus, skipClosedTasks) {
     var chds = task.getChildren();
     for (var i = 0; i < chds.length; i++)
-      if (!(skipClosedTasks && chds[i].status == "STATUS_DONE") )
+      if (!(skipClosedTasks && (chds[i].status == "COMPLETE" ||
+                                chds[i].status == "CANCELLED" ||
+                                chds[i].status == "DEFERRED" ||
+                                chds[i].status == "RETIRED")) )
         propagateStatus(chds[i], newStatus, false, true, false);
   }
 
@@ -798,6 +857,18 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
   var manuallyChanged=true;
 
   var oldStatus = this.status;
+
+  /* TODO: Check that this function does recur for all changes - otherwise need to make the task database update
+      work for all changes in the parents/children
+   */
+
+  updateTask(this.id, {status: newStatus}).then((result) => {
+    this.lastDBInteraction = result;
+  }).catch((error) => {
+    this.lastDBInteraction = error;
+    console.error("Failed to update task status:", error);
+  });
+
   //first call
   if (propagateStatus(this, newStatus, manuallyChanged, false, false)) {
     return true;
@@ -847,7 +918,7 @@ Task.prototype.isLocallyBlockedByDependencies = function () {
  * @return {number} The index of the current task in the master's tasks array. Returns -1 if the task or master is not found.
  */
 Task.prototype.getRow = function () {
-  ret = -1;
+  var ret = -1;
   if (this.master)
     ret = this.master.tasks.indexOf(this);
   return ret;
@@ -939,19 +1010,15 @@ Task.prototype.getChildren = function () {
 
 
 /**
- * Retrieves a descendant task based on the specified criteria.
+ * Retrieves a descendant task from the current task hierarchy based on the provided task ID.
  *
- * This method searches through the task's child tasks and their descendants
- * to find one that matches the given conditions. If a matching descendant is
- * found, it is returned; otherwise, the method returns null or undefined.
+ * This method traverses through the current task and its children recursively to locate a descendant
+ * task matching the specified ID. If the task is found, it is returned; otherwise, the method returns null.
  *
- * The search can typically be guided by parameters such as an ID, name, or
- * other identifying property depending on implementation.
- *
- * @param {Object} criteria - The criteria used to locate the descendant task.
- * This is usually an object that specifies properties to match.
- * @returns {Task|null} The matching descendant task if found, otherwise null
- * or undefined.
+ * @function
+ * @name Task.prototype.getDescendant
+ * @param {string} taskId - The unique identifier of the task to search for within the task hierarchy.
+ * @returns {Task|null} The descendant task if found, or null if no task with the specified ID exists.
  */
 Task.prototype.getDescendant = function () {
   var ret = [];
@@ -1399,113 +1466,147 @@ Task.prototype.moveDown = function () {
   return ret;
 };
 
+// COMPLETEDTODO: Modify this to match the current statuses for NT
+// ** TODO: Put in place mechanism to bulk cascade the status to all children
+// ** TODO: Have an automatic pop up when task turned to certain statuses - blocked etc.
+
+/* NOTE: For the time being replace this function with a replacement function which allows the task status to be
+ * changed to anything - the logic controlling it seems to be arbitrary
+ */
 
 /**
- * Determines if the status of the current task can be changed to the specified new status.
+ * Determines if the task's status can be changed to the specified status.
  *
- * @param {string} newStatus - The new status to which the current task is being evaluated.
- * Possible statuses: "STATUS_DONE", "STATUS_ACTIVE", "STATUS_WAITING", "STATUS_SUSPENDED",
- * "STATUS_FAILED", "STATUS_UNDEFINED".
+ * This function evaluates whether a transition to the given status is valid
+ * based on predefined business rules or conditions.
  *
- * @return {boolean} Returns true if the status can be changed to the specified newStatus
- * based on the rules for each status and the task's current state and relationships.
- * Otherwise, returns false.
+ * @param {string} newStatus - The target status to evaluate for the transition.
+ * @returns {boolean} Returns true if the status can be changed to the specified target status, otherwise false.
  */
-Task.prototype.canStatusBeChangedTo=function(newStatus) {
-  //lo stato corrente è sempre ok
-  if (newStatus==this.status)
-    return true;
+Task.prototype.canStatusBeChangedTo = function (newStatus) {
+  return true
+}
 
-  var parent=this.getParent();
-
-  //---------------------------------------------------------------------- STATUS_DONE ----------------------------------------------------------------
-  // A task can be STATUS_DONE if it is a root task
-  // if its parent has not failed or is not undefined
-  // if it does not have open previous tasks
-  if ("STATUS_DONE"==newStatus) {
-    if (!parent )
-      return true;
-
-    if ("STATUS_FAILED"==parent.status || "STATUS_UNDEFINED"==parent.status)
-      return false;
-
-    var sups=this.getSuperiorTasks();
-    for (var i=0;i<sups.length;i++) {
-      if ("STATUS_DONE"!=sups[i].status) { // è un errore se un predecessore non è chiuso
-        return false;
-      }
-    }
-    return true;
-
-
-    /**
-     * ---------------------------------------------------------------------- STATUS_ACTIVE ----------------------------------------------------------------
-     * un task può essere STATUS_ACTIVE se l'eventuale padre è active e se tutti i predecessori sono in STATUS_DONE
-     */
-  } else if ("STATUS_ACTIVE"==newStatus) {
-    if (!parent )
-      return true;
-
-    if (!"STATUS_ACTIVE"==parent.status)
-      return false;
-
-    var sups=this.getSuperiorTasks();
-    for (var i=0;i<sups.length;i++) {
-      if ("STATUS_DONE"!=sups[i].status) { // è un errore se un predecessore non è chiuso
-        return false;
-      }
-    }
-    return true;
-
-
-    //---------------------------------------------------------------------- STATUS_WAITING ----------------------------------------------------------------
-    //un task può essere STATUS_WAITING solo se ha il padre o un predecessore STATUS_WAITING || un predecessore active STATUS_ACTIVE
-  } else if ("STATUS_WAITING"==newStatus) {
-    //un task può essere STATUS_WAITING solo se ha il padre
-    if (!parent )
-      return false;
-
-    if ("STATUS_FAILED"==parent.status || "STATUS_UNDEFINED"==parent.status)
-      return false;
-
-
-    if ("STATUS_WAITING"==parent.status)
-      return true;
-
-    var sups=this.getSuperiorTasks();
-    for (var i=0;i<sups.length;i++) {
-      if ("STATUS_WAITING"==sups[i].status || "STATUS_ACTIVE"==sups[i].status) {
-        return true;
-      }
-    }
-    return false;
-
-
-    //---------------------------------------------------------------------- STATUS_SUSPENDED ----------------------------------------------------------------
-    //un task può essere is STATUS_SUSPENDED (a mano) se di root
-    // se il parent è STATUS_ACTIVE o STATUS_SUSPENDED e se non
-  } else if ("STATUS_SUSPENDED"==newStatus) {
-    if (!parent )
-      return true;
-
-    if ("STATUS_UNDEFINED"==parent.status || "STATUS_FAILED"==parent.status)
-      return false;
-
-    return true;
-
-    //---------------------------------------------------------------------- STATUS_FAILED ----------------------------------------------------------------
-  } else if ("STATUS_FAILED"==newStatus) {
-    //può essere in STATUS_FAILED sempre
-    return true;
-
-    //---------------------------------------------------------------------- STATUS_UNDEFINED ----------------------------------------------------------------
-  } else if ("STATUS_UNDEFINED"==newStatus) {
-    //può essere in STATUS_UNDEFINED sempre
-    return true;
-  }
-
-  return false;
-};
+// /**
+//  * Determines if the status of the current task can be changed to the specified new status.
+//  *
+//  * @param {string} newStatus - The new status to which the current task is being evaluated.
+//  * Possible statuses: "COMPLETE", "IN_PROGRESS", "BLOCKED", "DEFERRED",
+//  * "RETIRED", "BACKLOG", "CANCELLED".
+//  *
+//  * @return {boolean} Returns true if the status can be changed to the specified newStatus
+//  * based on the rules for each status and the task's current state and relationships.
+//  * Otherwise, returns false.
+//  */
+// Task.prototype.canStatusBeChangedTo = function (newStatus) {
+//   // The current status is always valid
+//   if (newStatus == this.status)
+//     return true;
+//
+//   var parent = this.getParent();
+//
+//
+//   // Get an array of parent tasks
+//   var parents = this.getParents();
+//
+//   /* Capture status cascade for relevant statuses - Blocked, Complete, Retired, Cancelled */
+//
+//   // If any parent is blocked, the task's status cannot be changed to anything but "BLOCKED"
+//   for (var i = 0; i < parents.length; i++) {
+//     if ("BLOCKED" == parents[i].status) {
+//       return "BLOCKED" == newStatus;
+//     }
+//   }
+//
+//
+//   //---------------------------------------------------------------------- Blocked ----------------------------------------------------------------
+// if ("BLOCKED" == newStatus) {
+//   // A task can always be Blocked
+//   if (parent && "BLOCKED" == parent.status)
+//     return true;
+//
+//   var sups = this.getSuperiorTasks();
+//   for (var i = 0; i < sups.length; i++) {
+//     if ("BLOCKED" == sups[i].status || "IN_PROGRESS" == sups[i].status) {
+//       return true;
+//     }
+//   }
+//
+//   return true;
+//   //---------------------------------------------------------------------- Complete ----------------------------------------------------------------
+//   // A task can be Complete if it is a root task
+//   // if its parent has not failed or is not undefined
+//   // if it does not have open previous tasks
+// } else if ("COMPLETE" == newStatus) {
+//     if (!parent)
+//       return true;
+//
+//     if ("RETIRED" == parent.status || "BACKLOG" == parent.status)
+//       return false;
+//
+//     var sups = this.getSuperiorTasks();
+//     for (var i = 0; i < sups.length; i++) {
+//       if ("COMPLETE" != sups[i].status) { // It is an error if a predecessor is not closed
+//         return false;
+//       }
+//     }
+//     return true;
+//
+//
+//     /**
+//      * ---------------------------------------------------------------------- InProgress ----------------------------------------------------------------
+//      * a task can be InProgress if its parent (if any) is active and all its predecessors are in
+//      * Complete
+//      */
+//   } else if ("IN_PROGRESS" == newStatus) {
+//     if (!parent)
+//       return true;
+//
+//     if (!"IN_PROGRESS" == parent.status)
+//       return false;
+//
+//     var sups = this.getSuperiorTasks();
+//     for (var i = 0; i < sups.length; i++) {
+//       if ("COMPLETE" != sups[i].status) { // It is an error if a predecessor is not closed
+//         return false;
+//       }
+//     }
+//     return true;
+//
+//
+//
+//
+//
+//     //---------------------------------------------------------------------- Deferred ----------------------------------------------------------------
+//     // A task can be Deferred (manually) if it is root
+//     // if the parent is InProgress or Deferred and if not
+//   } else if ("DEFERRED" == newStatus) {
+//     if (!parent)
+//       return true;
+//
+//     if ("BACKLOG" == parent.status || "RETIRED" == parent.status)
+//       return false;
+//
+//     return true;
+//
+//     //---------------------------------------------------------------------- Retired ----------------------------------------------------------------
+//   } else if ("RETIRED" == newStatus) {
+//     // It can always be Retired
+//     return true;
+//
+//     //---------------------------------------------------------------------- Backlog ----------------------------------------------------------------
+//   } else if ("BACKLOG" == newStatus) {
+//     // It can always be Backlog
+//     return true;
+//
+//     //---------------------------------------------------------------------- Cancelled ----------------------------------------------------------------
+//   } else if ("CANCELLED" == newStatus) {
+//     // It can always be Cancelled, similar to Retired
+//     return true;
+//   }
+//
+//   return false;
+// };
 
 
 //<%------------------------------------------------------------------------  LINKS OBJECT ---------------------------------------------------------------%>
@@ -1525,6 +1626,8 @@ function Link(taskFrom, taskTo, lagInWorkingDays) {
 
 
 //<%------------------------------------------------------------------------  ASSIGNMENT ---------------------------------------------------------------%>
+
+// NOTE: This is essentially the resource item in Seaview database
 /**
  * Represents an assignment for a resource with a specific role and effort.
  *
@@ -1546,19 +1649,33 @@ function Assignment(id, resourceId, roleId, effort) {
 //TODO: Add in additional properties of a resource
 //TODO: Add in categorisation enumeration
 /**
- * Represents a Resource with an ID and a name.
+ * Represents a resource with attributes like ID, name, type, department, etc.
  *
- * @param {number|string} id - The unique identifier for the resource.
- * @param {string} name - The name of the resource.
- * @return {Resource} A new instance of the Resource class.
+ * @param {number} id - Unique identifier for the resource.
+ * @param {string} name - Name of the resource.
+ * @param {string} resourceType - Type of the resource.
+ * @param {string} resourceDepartment - Department the resource belongs to.
+ * @param {string} email - Email address of the resource.
+ * @param {string} username - Username associated with the resource.
+ * @param {boolean} isActive - Indicates whether the resource is active.
+ * @param {Array} workPattern - Work pattern or schedule of the resource.
+ * @return {void} This constructor function does not return a value.
  */
-function Resource(id, name) {
+function Resource(id, name, resourceType, resourceDepartment, email, username, isActive, workPattern) {
   this.id = id;
   this.name = name;
+  this.resourceType = resourceType;
+  this.resourceDepartment = resourceDepartment;
+  this.email = email;
+  this.username = username;
+  this.isActive = isActive;
+  this.workPattern = workPattern;
 }
 
 
 //<%------------------------------------------------------------------------  ROLE ---------------------------------------------------------------%>
+
+// NOTE: This is essentially the resource_type enumeration
 /**
  * Constructs a new Role object with the specified id and name.
  *
