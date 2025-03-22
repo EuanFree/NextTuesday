@@ -47,8 +47,8 @@ function GanttMaster() {
   this.element; // editor and gantt box without buttons
 
 
-  this.resources; //list of resources
-  this.roles;  //list of roles
+  this.resources = []; //list of resources
+  this.roles = [];  //list of roles
 
   this.minEditableDate = 0;
   this.maxEditableDate = Infinity;
@@ -138,8 +138,9 @@ GanttMaster.prototype.init = function (workSpace) {
   place.append(this.editor.gridified);
 
   //create gantt
+  console.log('init gantt');
   this.gantt = new Ganttalendar(new Date().getTime() - 3600000 * 24 * 2, new Date().getTime() + 3600000 * 24 * 5, this, place.width() * .6);
-
+  console.log('init gantt done');
   //setup splitter
   self.splitter = $.splittify.init(place, this.editor.gridified, this.gantt.element, 60);
   self.splitter.firstBoxMinWidth = 5;
@@ -285,7 +286,8 @@ GanttMaster.prototype.init = function (workSpace) {
   $("#saveGanttButton").after($('#LOG_CHANGES_CONTAINER'));
 
   //ask for comment management
-  this.element.on("saveRequired.gantt",this.manageSaveRequired);
+  //TODO: This was commented out to try and understand error - need to understand why!
+  //this.element.on("saveRequired.gantt",this.manageSaveRequired);
 
 
   //resize
@@ -598,14 +600,18 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
       // let resourcesFromDB = await getResourcesList();
       getResourcesList().then(resourcesFromDB =>  {
         for (let resource of resourcesFromDB.rows) {
-          this.resources[resource.id].name = resource.name;
-          this.resources[resource.id].id = resource.id;
-          this.resources[resource.id].resourceType = resource.resource_type;
-          this.resources[resource.id].resourceDepartment = resource.resource_department;
-          this.resources[resource.id].email = resource.email;
-          this.resources[resource.id].username = resource.username;
-          this.resources[resource.id].isActive = resource.is_active;
-          this.resources[resource.id].workPattern = [resource.works_on_monday,
+          if (!this.resources[Number(resource.id)]) {
+            // If it doesn't exist, create a new object at that index.
+            this.resources[Number(resource.id)] = {};
+          }
+          this.resources[Number(resource.id)].name = resource.name;
+          this.resources[Number(resource.id)].id = Number(resource.id);
+          this.resources[Number(resource.id)].resourceType = resource.resource_type;
+          this.resources[Number(resource.id)].resourceDepartment = resource.resource_department;
+          this.resources[Number(resource.id)].email = resource.email;
+          this.resources[Number(resource.id)].username = resource.username;
+          this.resources[Number(resource.id)].isActive = resource.is_active;
+          this.resources[Number(resource.id)].workPattern = [resource.works_on_monday,
             resource.works_on_tuesday,
             resource.works_on_wednesday,
             resource.works_on_thursday,
@@ -618,8 +624,12 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
         // let rolesFromDB = await getEnumerationTable("resourcetype");
         getEnumerationTable("resourcetype").then(rolesFromDB =>  {
           for (let role of rolesFromDB) {
-            this.roles[role.enumsortorder].name = role.enumlabel;
-            this.roles[role.enumsortorder].id = role.enumsortorder;
+            if(!this.roles[Number(role.enumsortorder)])
+            {
+              this.roles[Number(role.enumsortorder)] = {};
+            }
+            this.roles[Number(role.enumsortorder)].name = role.enumlabel;
+            this.roles[Number(role.enumsortorder)].id = role.enumsortorder;
           }
 
           // Apply permissions from the loaded project
@@ -640,12 +650,13 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
           // Recover stored collapsed states
           const collTasks = this.loadCollapsedTasks();
 
-          // Adjust task dates and set collapsed status
-          for (const task of project.tasks) {
-            task.start += this.serverClientTimeOffset;
-            task.end += this.serverClientTimeOffset;
-            task.collapsed = collTasks.indexOf(task.id) >= 0;
-          }
+          //NOTE: Not sure what's going on with this
+          // // Adjust task dates and set collapsed status
+          // for (const task of project.tasks) {
+          //   task.start += this.serverClientTimeOffset;
+          //   task.end += this.serverClientTimeOffset;
+          //   task.collapsed = collTasks.indexOf(task.id) >= 0;
+          // }
 
           // Load tasks into GanttMaster
           this.loadTasksFromPostgreSQL(projectId);
@@ -670,97 +681,6 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
         })
       })
     })
-  //   console.log(`Project ${projectId} loaded from database.`);
-  //   console.log('Project: ' + project);
-  //
-  //   if (!project) {
-  //     throw new Error("Failed to load project data from the database.");
-  //   }
-  //
-  //   // Set time offset from the server
-  //   this.serverClientTimeOffset = typeof project.serverTimeOffset !== "undefined"
-  //       ? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000)
-  //       : 0;
-  //
-  //   // Load resources and roles from the project
-  //   let resourcesFromDB = await getResourcesList();
-  //
-  //   for (let resource of resourcesFromDB) {
-  //     this.resources[resource.id].name = resource.name;
-  //     this.resources[resource.id].id = resource.id;
-  //     this.resources[resource.id].resourceType = resource.resource_type;
-  //     this.resources[resource.id].resourceDepartment = resource.resource_department;
-  //     this.resources[resource.id].email = resource.email;
-  //     this.resources[resource.id].username = resource.username;
-  //     this.resources[resource.id].isActive = resource.is_active;
-  //     this.resources[resource.id].workPattern = [resource.works_on_monday,
-  //       resource.works_on_tuesday,
-  //       resource.works_on_wednesday,
-  //       resource.works_on_thursday,
-  //       resource.works_on_friday,
-  //       resource.works_on_saturday,
-  //       resource.works_on_sunday];
-  //   }
-  //
-  //   // Pull in the data for the roles
-  //   let rolesFromDB = await getEnumerationTable("resourcetype");
-  //   for (let role of rolesFromDB) {
-  //     this.roles[role.enumsortorder].name = role.enumlabel;
-  //     this.roles[role.enumsortorder].id = role.enumsortorder;
-  //   }
-  //
-  //   // Apply permissions from the loaded project
-  //   this.permissions.canWrite = project.canWrite;
-  //   this.permissions.canAdd = project.canAdd;
-  //   this.permissions.canWriteOnParent = project.canWriteOnParent;
-  //   this.permissions.cannotCloseTaskIfIssueOpen = project.cannotCloseTaskIfIssueOpen;
-  //   this.permissions.canAddIssue = project.canAddIssue;
-  //   this.permissions.canDelete = project.canDelete;
-  //
-  //   // Refresh the button bar based on permissions
-  //   this.checkButtonPermissions();
-  //
-  //   // Set editable boundaries
-  //   this.minEditableDate = project.minEditableDate ? computeStart(project.minEditableDate) : -Infinity;
-  //   this.maxEditableDate = project.maxEditableDate ? computeEnd(project.maxEditableDate) : Infinity;
-  //
-  //   // Recover stored collapsed states
-  //   const collTasks = this.loadCollapsedTasks();
-  //
-  //   // Adjust task dates and set collapsed status
-  //   for (const task of project.tasks) {
-  //     task.start += this.serverClientTimeOffset;
-  //     task.end += this.serverClientTimeOffset;
-  //     task.collapsed = collTasks.indexOf(task.id) >= 0;
-  //   }
-  //
-  //   // Load tasks into GanttMaster
-  //   this.loadTasksFromPostgreSQL(projectId);
-  //   this.deletedTaskIds = [];
-  //
-  //   // Handle saved zoom level
-  //   if (project.zoom) {
-  //     this.gantt.zoom = project.zoom;
-  //   } else {
-  //     this.gantt.shrinkBoundaries();
-  //     this.gantt.setBestFittingZoom();
-  //   }
-  //
-  //   // End the transaction
-  //   this.endTransaction();
-  //
-  //   // Center Gantt on today's date
-  //   const self = this;
-  //   this.gantt.element.oneTime(200, () => {
-  //     self.gantt.centerOnToday();
-  //   });
-  //
-  //   return true;
-  // } catch (error) {
-  //   console.error("Error loading project from database:", error);
-  //   this.endTransaction();
-  //   return false;
-
     return true;
   } catch (error) {
     console.error("Error loading project from database:", error);
@@ -789,17 +709,21 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     console.log('Error resetting GanttMaster:');
     console.log(e);
   }
-  var taskArr = await getProjectTasksFromServer(projectID, activeOnly);
-  // console.log('taskArr.rows:' + taskArr.rows);
-  for(var i = 0; i < taskArr.rows.length; i++)
+  var tasks = await getProjectTasksFromServer(projectID, activeOnly);
+  // console.log('tasks:' + tasks.rowCount);
+  for(var i = 0; i < tasks.rowCount; i++)
   {
-    var task = tasks[i];
-    console.log(`task[${i}]: ${tasks[i]}`);
+    var task = tasks.rows[i];
+
+    // TODO: Move task setup and levels to the server side
+    // console.log(`tasks[${i}]: ${task.id}`);
     var taskSetup = await getProjectTaskUserSetup(task.id);
+    // console.log(`taskSetup: ${taskSetup.collapsed}`);
     var taskLevel = await getTaskAncestorCount(task.id);
-    var t = factory.build(task.id, task.title, 'misc', taskLevel, task.start_date, task.duration, taskSetup.collapsed);
+    // console.log(`taskLevel: ${taskLevel}`);
+    const t = factory.build(task.id, task.title, 'misc', taskLevel, task.start_date, task.duration, taskSetup.collapsed);
     task.master = this;
-    this.tasks.push(task)
+    this.tasks.push(t)
   }
 
   for (var i = 0; i < this.tasks.length; i++) {

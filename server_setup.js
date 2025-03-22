@@ -31,7 +31,8 @@ const { executeSQL,
     getProjectJSON,
     getResourcesList,
     getProjectTaskUserSetup,
-    countTaskAncestors
+    countTaskAncestors,
+    getCombinedProjectTaskDetails
 } = require('./seaviewConnection');
 
 
@@ -337,7 +338,7 @@ app.post('/updateTask', async (req, res) => {
         }
 
         const updatedTask = await updateTask(taskId, taskDetails); // Assuming `updateTask` processes the update logic
-        return res.json(updatedTask);
+        res.json(updatedTask);
     } catch (error) {
         console.error('Error updating task:', error);
         res.status(500).send('An error occurred while updating the task.');
@@ -359,7 +360,7 @@ app.post('/addTaskChange', async (req, res) => {
 
         const taskChangeEntry = await addTaskChange(taskChangeDetails.taskId,
             taskChangeDetails.changedBy, taskChangeDetails.oldValues, taskChangeDetails.newValues); // Assuming `addTaskChange` is the database function to add changes
-        return res.json(taskChangeEntry);
+        res.json(taskChangeEntry);
     }
     catch (error) {
         console.error('Error recording task change:', error);
@@ -386,7 +387,7 @@ app.get('/addBlankTaskToProject', async (req, res) => {
         }
         const newTask = await addBlankTaskToProject(projectId);
         console.log('Added blank task to project...');
-        return res.json(newTask);
+        res.json(newTask);
     } catch (error) {
         console.error('Error adding blank task to project:', error);
         res.status(500).send('An error occurred while adding blank task to project.');
@@ -444,10 +445,25 @@ app.get('/countTaskAncestors', async (req, res) => {
     const taskId = req.query.taskId;
     try{
         const count = await countTaskAncestors(taskId);
+        console.log('Task ancestors count:', count);
         res.json(count);
     } catch (error) {
         console.error('Error counting task ancestors:', error);
         res.status(500).send('An error occurred while counting the task ancestors.');
+    }
+})
+
+app.get('/getCombinedProjectTaskDetails', async (req, res) => {
+    const projectId = req.query.projectId;
+    const userId = req.query.userId;
+    const activeOnly = req.query.activeOnly;
+    try{
+        console.log('Getting combined project task details...');
+        const details = await getCombinedProjectTaskDetails(projectId, userId, activeOnly);
+        res.json(details);
+    } catch (error) {
+        console.error('Error getting combined project task details:', error);
+        res.status(500).send('An error occurred while getting the combined project task details.');
     }
 })
 

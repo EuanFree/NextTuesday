@@ -982,15 +982,21 @@ async function getResourcesList(){
 
 async function getProjectTaskUserSetup(taskID)
 {
-    const query = `SELECT * FROM seaview.gantt_user_project_tasks_view_options
+    let query = `SELECT * FROM seaview.gantt_user_project_tasks_view_options
                             WHERE task_id = ${taskID}`;
     try
     {
+        // console.log('getProjTaskUserSetup query: ', query);
         const result = await executeSQL(query);
+        console.log('Project Task User Setup '+result.rowCount);
         if (result.rows.length > 0) {
-            return result.rows;
+            return result;
         } else {
-            throw new Error(`No tasks found.`);
+            query = `INSERT INTO seaview.gantt_user_project_tasks_view_options (task_id) VALUES (${taskID})`;
+            // console.log('query: ', query);
+            const result2 = await executeSQL(query);
+            console.log('Project Task User Setup '+result2.rowCount);
+            return result2;
         }
     } catch (error) {
         console.error("Error getting project task user setup:", error);
@@ -1034,6 +1040,67 @@ async function countTaskAncestors(taskID) {
 }
 
 
+/**
+ * Combines project tasks, their ancestor counts, and user-specific task setup into a single output.
+ *
+ * @param {number} projectID - The ID of the project.
+ * @param {number} userID - The ID of the user.
+ * @param {boolean} activeOnly - Whether to filter active tasks only.
+ * @returns {Promise<Object[]>} A promise that resolves to a table containing the combined task data.
+ */
+async function getCombinedProjectTaskDetails(projectID, userID, activeOnly=true) {
+    const activeFilter = activeOnly ? "AND t.is_active = true" : "";
+
+    const combinedQuery = `WITH tasks_for_project AS (
+    SELECT *
+    FROM seaview.tasks t
+    WHERE project_id = $1 ${activeFilter}
+    ),
+    insert_guptvo AS (
+    INSERT INTO seaview.gantt_user_project_tasks_view_options (project_id, task_id, user_id)
+    SELECT $1, t.id, $2
+    FROM tasks_for_project t
+    LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
+    ON t.id = guptvo.task_id AND guptvo.project_id = $1 AND guptvo.user_id = $2
+    WHERE guptvo.task_id IS NULL
+    RETURNING task_id
+    ),
+    task_hierarchy AS (
+    WITH RECURSIVE hierarchy_cte AS (
+        SELECT id AS task_id, parent_id, 0 AS level
+        FROM seaview.tasks t
+        WHERE project_id = $1 ${activeFilter}
+        UNION ALL
+        SELECT t.id AS task_id, t.parent_id, level + 1
+        FROM seaview.tasks t
+        INNER JOIN hierarchy_cte h ON t.parent_id = h.task_id
+    )
+    SELECT task_id, level AS hierarchy_level
+    FROM hierarchy_cte
+    ),
+    final_combination AS (
+    SELECT t.*, th.hierarchy_level, guptvo.*
+    FROM tasks_for_project t
+    LEFT JOIN task_hierarchy th ON t.id = th.task_id
+    LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
+    ON t.id = guptvo.task_id AND guptvo.user_id = $2
+    )
+    SELECT *
+    FROM final_combination;`;
+    try {
+        console.log('getCombinedProjectTaskDetails query: ', combinedQuery);
+        const combinedResult = await executeSQL(combinedQuery, [projectID, userID]);
+        if (combinedResult.rows.length === 0) {
+            throw new Error(`No tasks found for project ID ${projectID}.`);
+        }
+        return combinedResult.rows;
+    } catch (error) {
+        console.error("Error getting combined project task details:", error);
+        throw error;
+    }
+}
+
+
 //Export functions
 module.exports = {
     addPredecessorToTask,
@@ -1065,7 +1132,8 @@ module.exports = {
     getResourcesList,
     getProjectJSON,
     getProjectTaskUserSetup,
-    countTaskAncestors
+    countTaskAncestors,
+    getCombinedProjectTaskDetails
 }
 
 

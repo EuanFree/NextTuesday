@@ -332,6 +332,19 @@ function() {
 
         // here starts gantt initialization
         ge = new GanttMaster();
+
+        // Find the workspace element
+        const workSpaceElement = $("#workSpace");
+        if (workSpaceElement.length === 0) {
+            console.error("Workspace element (#workSpace) not found in DOM.");
+            return;
+        }
+        console.log("Workspace element found:", workSpaceElement);
+
+        // Initialize the Gantt editor with workspace
+        ge.init(workSpaceElement);
+
+
         getMyUserID().then(uID => {
             console.log("GANTT userID: " + uID);
             return ge.loadProjectFromDatabase(1, uID);
@@ -349,16 +362,16 @@ function() {
             ge.set100OnClose = true;
             ge.shrinkParent = true;
 
-            // Find the workspace element
-            const workSpaceElement = $("#workSpace");
-            if (workSpaceElement.length === 0) {
-                console.error("Workspace element (#workSpace) not found in DOM.");
-                return;
-            }
-            console.log("Workspace element found:", workSpaceElement);
-
-            // Initialize the Gantt editor with workspace
-            ge.init(workSpaceElement);
+            // // Find the workspace element
+            // const workSpaceElement = $("#workSpace");
+            // if (workSpaceElement.length === 0) {
+            //     console.error("Workspace element (#workSpace) not found in DOM.");
+            //     return;
+            // }
+            // console.log("Workspace element found:", workSpaceElement);
+            //
+            // // Initialize the Gantt editor with workspace
+            // ge.init(workSpaceElement);
             loadI18n(); // Overwrite with localized resources
 
             // Force compute the best-fitting zoom level

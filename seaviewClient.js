@@ -355,8 +355,9 @@ const getEnumerationTable = async (typeName) => {
         }
         const json = await response.json();
         console.log("Enumeration table: ", json);
-        const rows = json.rows;
-        return rows;
+        // const rows = json.rows;
+        // return rows;
+        return json;
     }
     catch(error)
     {
@@ -391,8 +392,7 @@ const getResourcesList = async () => {
         }
         const json = await response.json();
         console.log("Resources list: ", json);
-        const rows = json.rows;
-        return rows;
+        return json;
     }catch(error)
     {
         console.error(`Error fetching resources list:`, error);
@@ -406,9 +406,8 @@ const getProjectTaskUserSetup = async (taskID) => {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const json = await response.json();
-        console.log("Project task user setup: ", json);
-        const rows = json.rows;
-        return rows;
+        // console.log("Project task user setup: ", json);
+        return json;
     }catch(error){
         console.error(`Error fetching project task user setup:`, error);
     }
@@ -416,14 +415,13 @@ const getProjectTaskUserSetup = async (taskID) => {
 
 const getTaskAncestorCount = async (taskId) => {
     try{
-        const response = await fetch(`${server}/getTaskAncestorCount?taskId=${taskId}`);
+        const response = await fetch(`${server}/countTaskAncestors?taskId=${taskId}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const json = await response.json();
-        console.log("Task ancestor count: ", json);
-        const rows = json.rows;
-        return rows;
+        // console.log("Task ancestor count: ", json);
+        return json;
     }catch (error){
         console.error(`Error fetching task ancestor count:`, error);
     }
@@ -437,9 +435,6 @@ const getMyUserID = async () => {
         }
         const json = await response.json();
         console.log("My ID: ", json);
-        // const rows = json.rows;
-        // console.log("My ID Rows:",rows);
-        // return rows;
         return json;
     }
     catch(error){
