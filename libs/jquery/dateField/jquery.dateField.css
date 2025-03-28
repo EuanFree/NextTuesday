@@ -1,22 +1,26 @@
 .calBox {
-  background-color: #999;
+  background-color: #ececec;
   text-align: center;
-  color: white;
+  color: black;
   width:200px;
   position:absolute;
   padding-bottom: 10px;
+  font-family: Lexend, serif;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, .4);
 }
 
 .calElement,.calDayHeader  {
-  padding: 1px;
+  padding: 2px;
   display: inline-block;
   overflow:hidden;
 }
 
 .calDayHeader  {
-  padding: 4px;
+  padding: 3px;
   display: inline-block;
-  background-color:#55b6c7
+  background-color: #afafaf;
+  font-family: Lexend, serif;
+  font-weight: bold;
 }
 
 .calNav {
@@ -30,12 +34,12 @@
 
 
 .calDay .calElement, .calDay .calDayHeader {
-  border: 1px solid transparent;
+  border: 2px solid transparent;
 }
 
 .calDay .calElement.holy {
   /*background-color: rgba(236, 195, 176, 0.40);*/
-  color: #81d7e2;
+  color: #5e5e5e;
 
 }
 
@@ -76,6 +80,8 @@
 
 .calDay .calElement .dayNumber {
   font-size: 20px;
+  font-family: Saira, serif;
+  font-weight: bold;
 }
 
 .calDay.calFullMonth .dayNumber {
@@ -90,14 +96,14 @@
 }
 
 .calElement:hover {
-  background-color: #404040;
-  border: 1px solid #404040;
+  background-color: #d5d567;
+  border: 2px solid #7c7c3a;
   cursor: pointer;
 }
 
 
 .calElement.today {
-  border: 1px solid #c84e48;
+  border: 2px solid #c84e48;
 }
 
 

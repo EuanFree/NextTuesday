@@ -599,37 +599,41 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
       // Load resources and roles from the project
       // let resourcesFromDB = await getResourcesList();
       getResourcesList().then(resourcesFromDB =>  {
+        let localID = 0;
         for (let resource of resourcesFromDB.rows) {
-          if (!this.resources[Number(resource.id)]) {
+          if (!this.resources[localID]) {
             // If it doesn't exist, create a new object at that index.
-            this.resources[Number(resource.id)] = {};
+            this.resources[localID] = {};
           }
-          this.resources[Number(resource.id)].name = resource.name;
-          this.resources[Number(resource.id)].id = Number(resource.id);
-          this.resources[Number(resource.id)].resourceType = resource.resource_type;
-          this.resources[Number(resource.id)].resourceDepartment = resource.resource_department;
-          this.resources[Number(resource.id)].email = resource.email;
-          this.resources[Number(resource.id)].username = resource.username;
-          this.resources[Number(resource.id)].isActive = resource.is_active;
-          this.resources[Number(resource.id)].workPattern = [resource.works_on_monday,
+          this.resources[localID].name = resource.name;
+          this.resources[localID].id = Number(resource.id);
+          this.resources[localID].resourceType = resource.resource_type;
+          this.resources[localID].resourceDepartment = resource.resource_department;
+          this.resources[localID].email = resource.email;
+          this.resources[localID].username = resource.username;
+          this.resources[localID].isActive = resource.is_active;
+          this.resources[localID].workPattern = [resource.works_on_monday,
             resource.works_on_tuesday,
             resource.works_on_wednesday,
             resource.works_on_thursday,
             resource.works_on_friday,
             resource.works_on_saturday,
             resource.works_on_sunday];
+          localID++;
         }
 
         // Pull in the data for the roles
         // let rolesFromDB = await getEnumerationTable("resourcetype");
         getEnumerationTable("resourcetype").then(rolesFromDB =>  {
+          let localID = 0;
           for (let role of rolesFromDB) {
-            if(!this.roles[Number(role.enumsortorder)])
+            if(!this.roles[localID])
             {
-              this.roles[Number(role.enumsortorder)] = {};
+              this.roles[localID] = {};
             }
-            this.roles[Number(role.enumsortorder)].name = role.enumlabel;
-            this.roles[Number(role.enumsortorder)].id = role.enumsortorder;
+            this.roles[localID].name = role.enumlabel;
+            this.roles[localID].id = role.enumsortorder;
+            localID++;
           }
 
           // Apply permissions from the loaded project
@@ -659,24 +663,31 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
           // }
 
           // Load tasks into GanttMaster
-          this.loadTasksFromPostgreSQL(projectId);
-          this.deletedTaskIds = [];
-
-          // Handle saved zoom level
-          if (project.zoom) {
-            this.gantt.zoom = project.zoom;
-          } else {
-            this.gantt.shrinkBoundaries();
-            this.gantt.setBestFittingZoom();
-          }
-
-          // End the transaction
-          this.endTransaction();
-
-          // Center Gantt on today's date
-          const self = this;
-          this.gantt.element.oneTime(200, () => {
-            self.gantt.centerOnToday();
+          this.loadTasksFromPostgreSQL(projectId).then(() =>
+          {
+            this.deletedTaskIds = [];
+            getProjectUserSetup(projectId, userID).then(projectSetup => {
+              // Handle saved zoom level
+              console.log('projectSetup - zoom: ' + projectSetup.zoom_level);
+              if (projectSetup.zoom_level) {
+                // this.gantt.zoom = this.gantt.getZoomLevelIndex(projectSetup.zoom_level);
+                this.gantt.zoom = projectSetup.zoom_level;
+                console.log('this.gannt - zoom: ' + this.gantt.zoom);
+                this.gantt.storeZoomLevel();
+                this.gantt.redraw(); // Redraw the chart now that the zoom level has been set
+                // this.gantt.goToMillis(this,gantt.getCe)
+              } else {
+                this.gantt.shrinkBoundaries();
+                this.gantt.setBestFittingZoom();
+              }
+              // End the transaction
+              this.endTransaction();
+              // Center Gantt on today's date
+              const self = this;
+              this.gantt.element.oneTime(200, () => {
+                self.gantt.centerOnToday();
+              });
+            })
           });
         })
       })
@@ -709,38 +720,119 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     console.log('Error resetting GanttMaster:');
     console.log(e);
   }
-  var tasks = await getProjectTasksFromServer(projectID, activeOnly);
-  // console.log('tasks:' + tasks.rowCount);
-  for(var i = 0; i < tasks.rowCount; i++)
-  {
-    var task = tasks.rows[i];
+  // var tasks = await getProjectTasksFromServer(projectID, activeOnly);
+  // // console.log('tasks:' + tasks.rowCount);
+  // for(var i = 0; i < tasks.rowCount; i++)
+  // {
+  //   var task = tasks.rows[i];
+  //
+  //   // TODO: Move task setup and levels to the server side
+  //   // console.log(`tasks[${i}]: ${task.id}`);
+  //   var taskSetup = await getProjectTaskUserSetup(task.id);
+  //   // console.log(`taskSetup: ${taskSetup.collapsed}`);
+  //   var taskLevel = await getTaskAncestorCount(task.id);
+  //   // console.log(`taskLevel: ${taskLevel}`);
+  //   const t = factory.build(task.id, task.title, 'misc', taskLevel, task.start_date, task.duration, taskSetup.collapsed);
+  //   task.master = this;
+  //   this.tasks.push(t)
+  // }
+  const userID = await getMyUserID();
+  let selectedRow;
+  const tasks = await getCombinedProjectTaskDetails(projectID, userID, activeOnly);
 
-    // TODO: Move task setup and levels to the server side
-    // console.log(`tasks[${i}]: ${task.id}`);
-    var taskSetup = await getProjectTaskUserSetup(task.id);
-    // console.log(`taskSetup: ${taskSetup.collapsed}`);
-    var taskLevel = await getTaskAncestorCount(task.id);
-    // console.log(`taskLevel: ${taskLevel}`);
-    const t = factory.build(task.id, task.title, 'misc', taskLevel, task.start_date, task.duration, taskSetup.collapsed);
-    task.master = this;
-    this.tasks.push(t)
+  for (let k = 0; k < tasks.rowCount; k++) {
+    const task = tasks.rows[k];
+
+    if (k === 0) {
+      console.log('taskdata:', task);
+    }
+
+    // Build the task
+    const t = factory.build(
+        task.id,
+        task.title,
+        'misc',
+        task.hierarchy_level,
+        task.start_date,
+        task.duration,
+        task.collapsed
+    );
+
+    // Finalize task and add to the master list
+    t.master = this;
+    this.tasks.push(t);
+
   }
+
+  for(let k = 0; k < this.tasks.length; k++)
+  {
+    // Fetch task dependencies
+    const dependencies = await getTaskDependencies(this.tasks[k].id);
+
+    // Process dependencies
+    if (dependencies[0].successor_id !== -1)
+    {
+      let deps = '';
+      for (let j = 0; j < dependencies.length; j++) {
+        deps += dependencies[j].predecessor_id +
+            (j === dependencies.length - 1 ? '' : ',');
+      }
+      this.tasks[k].depends = deps;
+
+      // Add a new link to the this.links array based on dependencies
+      for (let j = 0; j < dependencies.length; j++) {
+        const predecessorId = dependencies[j].predecessor_id;
+        const successorId = dependencies[j].successor_id;
+        const lag = dependencies[j].lag || 0;
+
+        // Find the from and to tasks in the this.tasks array
+        const fromTask = this.tasks.find(task => task.id === predecessorId);
+        const toTask = this.tasks.find(task => task.id === successorId);
+
+        if (fromTask && toTask) {
+          // Create a new link object and add it to the this.links array
+          const link = {
+            id: `${fromTask.id}_${toTask.id}`,
+            from: fromTask,
+            to: toTask,
+            lag: lag
+          };
+
+          // this.links = this.links || [];
+          this.links.push(link);
+        } else {
+          console.warn(
+              `Could not create link: From task (ID: ${predecessorId}) or To task (ID: ${successorId}) not found.`
+          );
+        }
+      }
+    } else {
+      this.tasks[k].depends = '';
+    }
+    
+    
+    
+    // Optional: debugging output (comment in production)
+    // console.log('dependencies:' + this.tasks[k].depends + ' task.id:' + this.tasks[k].id);
+
+  }
+
 
   for (var i = 0; i < this.tasks.length; i++) {
     var task = this.tasks[i];
     var numOfError = this.__currentTransaction && this.__currentTransaction.errors ? this.__currentTransaction.errors.length : 0;
     //add Link collection in memory
-    while (!this.updateLinks(task)) {  // error on update links while loading can be considered as "warning". Can be displayed and removed in order to let transaction commits.
-      if (this.__currentTransaction && numOfError != this.__currentTransaction.errors.length) {
-        var msg = "ERROR:\n";
-        while (numOfError < this.__currentTransaction.errors.length) {
-          var err = this.__currentTransaction.errors.pop();
-          msg = msg + err.msg + "\n\n";
-        }
-        alert(msg);
-      }
-      this.__removeAllLinks(task, false);
-    }
+    // while (!this.updateLinks(task)) {  // error on update links while loading can be considered as "warning". Can be displayed and removed in order to let transaction commits.
+    //   if (this.__currentTransaction && numOfError != this.__currentTransaction.errors.length) {
+    //     var msg = "ERROR:\n";
+    //     while (numOfError < this.__currentTransaction.errors.length) {
+    //       var err = this.__currentTransaction.errors.pop();
+    //       msg = msg + err.msg + "\n\n";
+    //     }
+    //     alert(msg);
+    //   }
+    //   this.__removeAllLinks(task, false);
+    // }
     if (!task.setPeriod(task.start, task.end)) {
       alert(GanttMaster.messages.GANNT_ERROR_LOADING_DATA_TASK_REMOVED + "\n" + task.name );
       //remove task from in-memory collection
@@ -755,6 +847,14 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
 
   //this.editor.fillEmptyLines();
   //prof.stop();
+
+  /* Define default selected row if one is not passed */
+  if(!selectedRow)
+  {
+    selectedRow = 0;
+  }
+
+
   // re-select old row if tasks is not empty
   if (this.tasks && this.tasks.length > 0) {
     selectedRow = selectedRow ? selectedRow : 0;
@@ -844,67 +944,67 @@ GanttMaster.prototype.loadProject = function (project) {
  * @param {Array} tasks - An array of task objects to be loaded. Each task object should have the required fields necessary for Gantt chart rendering.
  * @throws {Error} Throws an error if the tasks array is invalid or if any task object is improperly formatted.
  */
-GanttMaster.prototype.loadTasks = function (tasks, selectedRow) {
-  //console.debug("GanttMaster.prototype.loadTasks")
-  //var prof=new Profiler("ganttMaster.loadTasks");
-  var factory = new TaskFactory();
-
-  //reset
-  this.reset();
-
-  for (var i = 0; i < tasks.length; i++) {
-    var task = tasks[i];
-    if (!(task instanceof Task)) {
-      var t = factory.build(task.id, task.name, task.code, task.level, task.start, task.duration, task.collapsed);
-      for (var key in task) {
-        if (key != "end" && key != "start")
-          t[key] = task[key]; //copy all properties
-      }
-      task = t;
-    }
-    task.master = this; // in order to access controller from task
-    this.tasks.push(task);  //append task at the end
-  }
-
-  for (var i = 0; i < this.tasks.length; i++) {
-    var task = this.tasks[i];
-
-
-    var numOfError = this.__currentTransaction && this.__currentTransaction.errors ? this.__currentTransaction.errors.length : 0;
-    //add Link collection in memory
-    while (!this.updateLinks(task)) {  // error on update links while loading can be considered as "warning". Can be displayed and removed in order to let transaction commits.
-      if (this.__currentTransaction && numOfError != this.__currentTransaction.errors.length) {
-        var msg = "ERROR:\n";
-        while (numOfError < this.__currentTransaction.errors.length) {
-          var err = this.__currentTransaction.errors.pop();
-          msg = msg + err.msg + "\n\n";
-        }
-        alert(msg);
-      }
-      this.__removeAllLinks(task, false);
-    }
-
-    if (!task.setPeriod(task.start, task.end)) {
-      alert(GanttMaster.messages.GANNT_ERROR_LOADING_DATA_TASK_REMOVED + "\n" + task.name );
-      //remove task from in-memory collection
-      this.tasks.splice(task.getRow(), 1);
-    } else {
-      //append task to editor
-      this.editor.addTask(task, null, true);
-      //append task to gantt
-      this.gantt.addTask(task);
-    }
-  }
-
-  //this.editor.fillEmptyLines();
-  //prof.stop();
-
-  // re-select old row if tasks is not empty
-  if (this.tasks && this.tasks.length > 0) {
-    selectedRow = selectedRow ? selectedRow : 0;
-    this.tasks[selectedRow].rowElement.click();
-  }
-};
+// GanttMaster.prototype.loadTasks = function (tasks, selectedRow) {
+//   //console.debug("GanttMaster.prototype.loadTasks")
+//   //var prof=new Profiler("ganttMaster.loadTasks");
+//   var factory = new TaskFactory();
+//
+//   //reset
+//   this.reset();
+//
+//   for (var i = 0; i < tasks.length; i++) {
+//     var task = tasks[i];
+//     if (!(task instanceof Task)) {
+//       var t = factory.build(task.id, task.name, task.code, task.level, task.start, task.duration, task.collapsed);
+//       for (var key in task) {
+//         if (key != "end" && key != "start")
+//           t[key] = task[key]; //copy all properties
+//       }
+//       task = t;
+//     }
+//     task.master = this; // in order to access controller from task
+//     this.tasks.push(task);  //append task at the end
+//   }
+//
+//   for (var i = 0; i < this.tasks.length; i++) {
+//     var task = this.tasks[i];
+//
+//
+//     var numOfError = this.__currentTransaction && this.__currentTransaction.errors ? this.__currentTransaction.errors.length : 0;
+//     //add Link collection in memory
+//     while (!this.updateLinks(task)) {  // error on update links while loading can be considered as "warning". Can be displayed and removed in order to let transaction commits.
+//       if (this.__currentTransaction && numOfError != this.__currentTransaction.errors.length) {
+//         var msg = "ERROR:\n";
+//         while (numOfError < this.__currentTransaction.errors.length) {
+//           var err = this.__currentTransaction.errors.pop();
+//           msg = msg + err.msg + "\n\n";
+//         }
+//         alert(msg);
+//       }
+//       this.__removeAllLinks(task, false);
+//     }
+//
+//     if (!task.setPeriod(task.start, task.end)) {
+//       alert(GanttMaster.messages.GANNT_ERROR_LOADING_DATA_TASK_REMOVED + "\n" + task.name );
+//       //remove task from in-memory collection
+//       this.tasks.splice(task.getRow(), 1);
+//     } else {
+//       //append task to editor
+//       this.editor.addTask(task, null, true);
+//       //append task to gantt
+//       this.gantt.addTask(task);
+//     }
+//   }
+//
+//   //this.editor.fillEmptyLines();
+//   //prof.stop();
+//
+//   // re-select old row if tasks is not empty
+//   if (this.tasks && this.tasks.length > 0) {
+//     selectedRow = selectedRow ? selectedRow : 0;
+//     this.tasks[selectedRow].rowElement.click();
+//   }
+// };
 
 
 /**
@@ -1299,7 +1399,8 @@ GanttMaster.prototype.storeCollapsedTasks = function () {
   }
 };
 
-
+// TODO: Adapt the code to use this for defining dependencies - may need to add dependencies on to the task
+//  during read in
 
 /**
  * Updates the links between tasks in the Gantt chart.

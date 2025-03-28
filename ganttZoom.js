@@ -258,3 +258,17 @@
 
 };
 
+
+/**
+ * Prototype function to get the zoom level index by its string value
+ * @param {string} zoomString - The string value representing the zoom level
+ * @returns {number} - The index of the zoom level in the zoom levels array, or -1 if not found
+ */
+Ganttalendar.prototype.getZoomLevelIndex = function (zoomString) {
+  for (let i = 0; i < this.zoomLevels.length; i++) {
+    if (this.zoomLevels[i] === zoomString) {
+      return i;
+    }
+  }
+  return -1; // Return -1 if not found
+};

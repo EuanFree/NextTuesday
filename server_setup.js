@@ -32,7 +32,10 @@ const { executeSQL,
     getResourcesList,
     getProjectTaskUserSetup,
     countTaskAncestors,
-    getCombinedProjectTaskDetails
+    getCombinedProjectTaskDetails,
+    getProjectUserSetup,
+    getTaskDependencies
+
 } = require('./seaviewConnection');
 
 
@@ -41,7 +44,7 @@ const { executeSQL,
 
 const os = require('os');
 const username = os.userInfo().username;
-console.log("Current user:", username);
+// console.log("Current user:", username);
 
 let userID = null;
 (async () => {
@@ -347,16 +350,16 @@ app.post('/updateTask', async (req, res) => {
 
 app.post('/addTaskChange', async (req, res) => {
     try{
-        console.log('Recording task change...');
+        // console.log('Recording task change...');
 
         const taskChangeDetails = req.body; // Parse task change details from the POST body
-        console.log('Task change details received:', taskChangeDetails);
+        // console.log('Task change details received:', taskChangeDetails);
 
         if (!taskChangeDetails || Object.keys(taskChangeDetails).length === 0) {
             return res.status(400).send('Task change details not provided.');
         }
-        console.log('server_setup.js: addTaskChange: taskChangeDetails:');
-        console.log('Task change details:', taskChangeDetails);
+        // console.log('server_setup.js: addTaskChange: taskChangeDetails:');
+        // console.log('Task change details:', taskChangeDetails);
 
         const taskChangeEntry = await addTaskChange(taskChangeDetails.taskId,
             taskChangeDetails.changedBy, taskChangeDetails.oldValues, taskChangeDetails.newValues); // Assuming `addTaskChange` is the database function to add changes
@@ -380,7 +383,7 @@ app.get( '/maxTaskChangeId', async (req, res) => {
 
 app.get('/addBlankTaskToProject', async (req, res) => {
     try{
-        console.log('Adding blank task to project...');
+        // console.log('Adding blank task to project...');
         const projectId = req.query.projectId;
         if (!projectId) {
             return res.status(400).send('Project ID not provided.');
@@ -408,8 +411,8 @@ app.get('/getEnumerationTable', async (req, res) => {
 app.get('/getProjectJSON', async (req, res) => {
     const projectId = req.query.projectId;
     const userId = req.query.userId;
-    console.log('Getting project JSON for project ID: ', projectId);
-    console.log('Getting project JSON for user ID: ', userId);
+    // console.log('Getting project JSON for project ID: ', projectId);
+    // console.log('Getting project JSON for user ID: ', userId);
     try{
         const project = await getProjectJSON(projectId, userId);
         res.json(project);
@@ -458,7 +461,7 @@ app.get('/getCombinedProjectTaskDetails', async (req, res) => {
     const userId = req.query.userId;
     const activeOnly = req.query.activeOnly;
     try{
-        console.log('Getting combined project task details...');
+        // console.log('Getting combined project task details...');
         const details = await getCombinedProjectTaskDetails(projectId, userId, activeOnly);
         res.json(details);
     } catch (error) {
@@ -466,6 +469,37 @@ app.get('/getCombinedProjectTaskDetails', async (req, res) => {
         res.status(500).send('An error occurred while getting the combined project task details.');
     }
 })
+
+app.get('/getProjectUserSetup', async (req, res) => {
+    const projectId = req.query.projectId;
+    const userId = req.query.userId;
+    try{
+        const setup = await getProjectUserSetup(projectId, userId);
+        res.json(setup);
+    } catch (error) {
+        console.error('Error getting project user setup:', error);
+        res.status(500).send('An error occurred while getting the project user setup.');
+    }
+})
+
+app.get('/getTaskDependencies', async (req, res) => {
+    try {
+        const taskId = req.query.taskId;
+        if (!taskId) {
+            return res.status(400).send('Task ID not provided.');
+        }
+        const dependencies = await getTaskDependencies(taskId);
+        if (!dependencies) {
+            // return res.status(404).send('Task dependencies not found.');
+            return [{'predecessor_id': null, 'successor_id': null}];
+        }
+        // console.log('Task dependencies:', dependencies);
+        res.json(dependencies);
+    } catch (error) {
+        console.error('Error getting task dependencies:', error);
+        res.status(500).send('An error occurred while getting the task dependencies.');
+    }
+});
 
 // Start the server
 app.listen(PORT, () => {

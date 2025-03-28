@@ -441,3 +441,63 @@ const getMyUserID = async () => {
         console.error(`Error fetching my ID:`, error);
     }
 }
+
+const getCombinedProjectTaskDetails = async (projectID, userID, activeOnly) => {
+    try{
+        const response = await fetch(`${server}/getCombinedProjectTaskDetails?projectId=${projectID}&userId=${userID}&activeOnly=${activeOnly}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        // console.log("Combined project task details: ", json);
+        return json;}
+    catch(error){
+        console.error(`Error fetching combined project task details:`, error);
+    }
+}
+
+const getProjectUserSetup = async (projectId, userID) =>
+{
+    try{
+        const response = await fetch(`${server}/getProjectUserSetup?projectId=${projectId}&userId=${userID}`);
+        if(!response.ok)
+        {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        console.log("Project user setup: ", json);
+
+        const zoomLevelMapping = {
+            "DAYS3": "3d",
+            "WEEK1": "1w",
+            "WEEK2": "2w",
+            "MONTH1": "1M",
+            "QUARTER1": "1Q",
+            "QUARTER2": "2Q",
+            "YEAR1": "1y",
+            "YEAR2": "2y",
+        };
+
+        json.zoom_level = zoomLevelMapping[json.zoom_level] || json.zoom_level; // Convert zoom_level using the mapping.
+        console.log("Project user setup: ", json);
+        return json;
+    }catch(error){
+        console.error(`Error fetching project user setup:`, error);
+    }
+}
+
+const getTaskDependencies = async (taskId) => {
+    try{
+        const response = await fetch(`${server}/getTaskDependencies?taskId=${taskId}`);
+        if(!response.ok)
+        {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        // console.log("Task dependencies: ", json);
+        return json;
+    }
+    catch(error){
+        console.error(`Error fetching task dependencies:`, error);
+    }
+}

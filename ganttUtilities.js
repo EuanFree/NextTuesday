@@ -506,7 +506,7 @@ function computeStart(start) {
  */
 function computeStartDate(start) {
   var d;
-  d = new Date(start + 3600000 * 12);
+  d = new Date(typeof start === "string" ? Date.parse(start) + 3600000 * 12 : start + 3600000 * 12);
   d.setHours(0, 0, 0, 0);
   //move to next working day
   while (isHoliday(d)) {
@@ -534,8 +534,8 @@ function computeEnd(end) {
  * @return {Date} The computed end date adjusted to the next valid working day.
  */
 function computeEndDate(end) {
-  var d = new Date(end - 3600000 * 12);
-  d.setHours(23, 59, 59, 999);
+  var d;
+  d = new Date(typeof end === "string" ? Date.parse(end) + 3600000 * 12 : end + 3600000 * 12);
   //move to next working day
   while (isHoliday(d)) {
     d.setDate(d.getDate() + 1);
@@ -554,7 +554,8 @@ function computeEndDate(end) {
  */
 function computeEndByDuration(start, duration) {
 //console.debug("computeEndByDuration start ",d,duration)
-  var d = new Date(start);
+  var d;
+  d = new Date(typeof start === "string" ? Date.parse(start) + 3600000 * 12 : start + 3600000 * 12);
   var q = duration - 1;
   while (q > 0) {
     d.setDate(d.getDate() + 1);

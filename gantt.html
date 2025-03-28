@@ -5,6 +5,11 @@
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
   <title>(Next) Tuesday</title>
 
+<!-- Add in Google Fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Saira" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Lexend" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=League Spartan' rel='stylesheet'>
+
   <link rel=stylesheet href="platform.css" type="text/css">
   <link rel=stylesheet href="libs/jquery/dateField/jquery.dateField.css" type="text/css">
 
@@ -345,33 +350,22 @@ function() {
         ge.init(workSpaceElement);
 
 
-        getMyUserID().then(uID => {
+        getMyUserID().then(async uID => {
             console.log("GANTT userID: " + uID);
-            return ge.loadProjectFromDatabase(1, uID);
-        }).then(project => {
-            console.log("GANTT project:", project);
+            const project = await ge.loadProjectFromDatabase(1, uID);
             if (!project) {
                 console.error("Project not found or invalid.");
-                return;
+                throw new Error("Invalid project");
             }
-            return ge.loadTasksFromPostgreSQL(1);
-        }).then(tasks => {
+            console.log("GANTT project:", project);
+            const tasks = await ge.loadTasksFromPostgreSQL(1);
+            return {project, tasks};
+        }).then(({project, tasks}) => {
             console.log("Successfully loaded tasks:", tasks);
-
 
             ge.set100OnClose = true;
             ge.shrinkParent = true;
 
-            // // Find the workspace element
-            // const workSpaceElement = $("#workSpace");
-            // if (workSpaceElement.length === 0) {
-            //     console.error("Workspace element (#workSpace) not found in DOM.");
-            //     return;
-            // }
-            // console.log("Workspace element found:", workSpaceElement);
-            //
-            // // Initialize the Gantt editor with workspace
-            // ge.init(workSpaceElement);
             loadI18n(); // Overwrite with localized resources
 
             // Force compute the best-fitting zoom level
@@ -382,7 +376,9 @@ function() {
             }
 
             // Load the actual project and its tasks
-            ge.loadProject(project); // Use the actual project loaded from the database
+
+            // ge.loadProject(project); // Use the actual project loaded from the database
+
             ge.checkpoint(); // Empty the undo stack (checkpoint)
 
             if (ge.tasks && ge.tasks.length > 0) {
@@ -533,7 +529,7 @@ function upload(uploadedFile) {
     var intern = JSON.parse(content); // Array of Objects.
     //console.log(intern); // You can index every object
     
-    ge.loadProject(intern);
+    // ge.loadProject(intern);
     ge.checkpoint(); //empty the undo stack
 
   };
@@ -1038,12 +1034,13 @@ function showBaselineInfo (event,element){
 
 <div class="__template__" type="CHANGE_STATUS"><!--
     <div class="taskStatusBox">
-    <div class="taskStatus cvcColorSquare" status="STATUS_ACTIVE" title="Active"></div>
-    <div class="taskStatus cvcColorSquare" status="STATUS_DONE" title="Completed"></div>
-    <div class="taskStatus cvcColorSquare" status="STATUS_FAILED" title="Failed"></div>
-    <div class="taskStatus cvcColorSquare" status="STATUS_SUSPENDED" title="Suspended"></div>
-    <div class="taskStatus cvcColorSquare" status="STATUS_WAITING" title="Waiting" style="display: none;"></div>
-    <div class="taskStatus cvcColorSquare" status="STATUS_UNDEFINED" title="Undefined"></div>
+    <div class="taskStatus cvcColorSquare" status="BACKLOG" title="Backlog"></div>
+    <div class="taskStatus cvcColorSquare" status="IN_PROGRESS" title="In Progress"></div>
+    <div class="taskStatus cvcColorSquare" status="BLOCKED" title="Blocked"></div>
+    <div class="taskStatus cvcColorSquare" status="CANCELLED" title="Cancelled"></div>
+    <div class="taskStatus cvcColorSquare" status="RETIRED" title="Retired" style="display: none;"></div>
+    <div class="taskStatus cvcColorSquare" status="COMPLETE" title="Complete"></div>
+    <div class="taskStatus cvcColorSquare" status="DEFERRED" title="Deferred"></div>
     </div>
   --></div>
 
@@ -1087,12 +1084,13 @@ function showBaselineInfo (event,element){
         <td  colspan="2">
           <label for="status" class=" ">status</label><br>
           <select id="status" name="status" class="taskStatus" status="(#=obj.status#)"  onchange="$(this).attr('STATUS',$(this).val());">
-            <option value="STATUS_ACTIVE" class="taskStatus" status="STATUS_ACTIVE" >active</option>
-            <option value="STATUS_WAITING" class="taskStatus" status="STATUS_WAITING" >suspended</option>
-            <option value="STATUS_SUSPENDED" class="taskStatus" status="STATUS_SUSPENDED" >suspended</option>
-            <option value="STATUS_DONE" class="taskStatus" status="STATUS_DONE" >completed</option>
-            <option value="STATUS_FAILED" class="taskStatus" status="STATUS_FAILED" >failed</option>
-            <option value="STATUS_UNDEFINED" class="taskStatus" status="STATUS_UNDEFINED" >undefined</option>
+            <option value="BACKLOG" class="taskStatus" status="BACKLOG" >Backlog</option>
+            <option value="IN_PROGRESS" class="taskStatus" status="IN_PROGRESS" >In Progress</option>
+            <option value="BLOCKED" class="taskStatus" status="BLOCKED" >Blocked</option>
+            <option value="CANCELLED" class="taskStatus" status="CANCELLED" >Cancelled</option>
+            <option value="RETIRED" class="taskStatus" status="RETIRED" >Retired</option>
+            <option value="COMPLETE" class="taskStatus" status="COMPLETE" >Complete</option>
+            <option value="DEFERRED" class="taskStatus" status="DEFERRED" >Deferred</option>
           </select>
         </td>
 

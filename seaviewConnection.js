@@ -20,10 +20,10 @@ async function executeSQL(sqlQuery, queryParams = []) {
 
     try {
         await client.connect();
-        console.log('Connected to the database');
+        // console.log('Connected to the database');
 
         const result = await client.query(sqlQuery, queryParams); // Use queryParams here
-        console.log('Query executed successfully:', result.rows);
+        // console.log('Query executed successfully:', result.rows);
 
         return result; // Return the entire result object, not just rows
     } catch (error) {
@@ -32,7 +32,7 @@ async function executeSQL(sqlQuery, queryParams = []) {
     } finally {
         try {
             await client.end();
-            console.log('Database connection closed');
+            // console.log('Database connection closed');
         } catch (err) {
             console.error('Error closing the database connection:', err);
         }
@@ -54,10 +54,10 @@ async function getProjectData(projectId, includeIsActive = true) {
     if (includeIsActive) {
         prjQuery += " AND is_active = true";
     }
-    console.log("prjQuery: " + prjQuery);
+    // console.log("prjQuery: " + prjQuery);
     // return executeSQL(prjQuery);
     let projectResponse = await executeSQL(prjQuery);
-    console.log("projectResponse: " + projectResponse.rows[0]);
+    // console.log("projectResponse: " + projectResponse.rows[0]);
     return projectResponse.rows[0];
 }
 
@@ -118,11 +118,11 @@ async function getProjectTasks(projectId, includeIsActive=true)
  */
 async function getUserProjectPermissions(projectID, userID)
 {
-    console.log("getUserProjectPermissions projectID: " + projectID);
-    console.log("getUserProjectPermissions userID: " + userID);
+    // console.log("getUserProjectPermissions projectID: " + projectID);
+    // console.log("getUserProjectPermissions userID: " + userID);
     let permissionsSQL = `SELECT * FROM seaview.gantt_permissions_store WHERE project_id = ${projectID} 
         AND user_id = ${userID}`;
-    console.log("permissionsSQL: " + permissionsSQL);
+    // console.log("permissionsSQL: " + permissionsSQL);
     let permissionsResponse = await executeSQL(permissionsSQL);
     
     if (permissionsResponse.rows.length === 0) {
@@ -193,8 +193,8 @@ async function getProjectJSON(projectID, userID)
 {
     // let projectTaskArray = populateTasksAdditionalInformationForGanttChart(projectID);
     console.log("Starting getProjectJSON:")
-    console.log("projectID: " + projectID);
-    console.log("userID: " + userID);
+    // console.log("projectID: " + projectID);
+    // console.log("userID: " + userID);
     let projectDetails = await getProjectData(projectID);
     let projectPermissions = await getUserProjectPermissions(projectID, userID);
     let userSetup = await getProjectUserSetup(projectID, userID);
@@ -243,7 +243,7 @@ async function getProjectJSON(projectID, userID)
     //     // Push the final task object into projectJSON.tasks
     //     projectJSON.tasks.push(task);
     // }
-    console.log("projectJSON: " + JSON.stringify(projectJSON));
+    // console.log("projectJSON: " + JSON.stringify(projectJSON));
     return projectJSON;
 }
 
@@ -390,10 +390,10 @@ async function addTaskChange(taskID, changedBy, oldValues, newValues)
     ];
 
     try {
-        console.log("addTaskChange query: " + query);
-        console.log("addTaskChange values: " + values);
+        // console.log("addTaskChange query: " + query);
+        // console.log("addTaskChange values: " + values);
         const result = await executeSQL(query, values);
-        console.log("addTaskChange result: " + result);
+        // console.log("addTaskChange result: " + result);
         return result.rows[0];
     } catch (error) {
         console.error("Error inserting a task change record:", error);
@@ -1054,49 +1054,81 @@ async function getCombinedProjectTaskDetails(projectID, userID, activeOnly=true)
     const combinedQuery = `WITH tasks_for_project AS (
     SELECT *
     FROM seaview.tasks t
-    WHERE project_id = $1 ${activeFilter}
-    ),
-    insert_guptvo AS (
-    INSERT INTO seaview.gantt_user_project_tasks_view_options (project_id, task_id, user_id)
-    SELECT $1, t.id, $2
-    FROM tasks_for_project t
-    LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
-    ON t.id = guptvo.task_id AND guptvo.project_id = $1 AND guptvo.user_id = $2
-    WHERE guptvo.task_id IS NULL
-    RETURNING task_id
-    ),
-    task_hierarchy AS (
-    WITH RECURSIVE hierarchy_cte AS (
-        SELECT id AS task_id, parent_id, 0 AS level
-        FROM seaview.tasks t
-        WHERE project_id = $1 ${activeFilter}
-        UNION ALL
-        SELECT t.id AS task_id, t.parent_id, level + 1
-        FROM seaview.tasks t
-        INNER JOIN hierarchy_cte h ON t.parent_id = h.task_id
-    )
-    SELECT task_id, level AS hierarchy_level
-    FROM hierarchy_cte
-    ),
-    final_combination AS (
-    SELECT t.*, th.hierarchy_level, guptvo.*
-    FROM tasks_for_project t
-    LEFT JOIN task_hierarchy th ON t.id = th.task_id
-    LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
-    ON t.id = guptvo.task_id AND guptvo.user_id = $2
-    )
+    WHERE project_id = $1 ${activeFilter} ), insert_guptvo AS (
+                           INSERT
+                           INTO seaview.gantt_user_project_tasks_view_options (project_id, task_id, user_id)
+                           SELECT $1, t.id, $2
+                           FROM tasks_for_project t
+                               LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
+                           ON t.id = guptvo.task_id AND guptvo.project_id = $1 AND guptvo.user_id = $2
+                           WHERE guptvo.task_id IS NULL
+                               RETURNING task_id
+                               )
+                               , task_hierarchy AS (
+                           WITH RECURSIVE hierarchy_cte AS (
+                               SELECT id AS task_id, parent_id, 0 AS level
+                               FROM seaview.tasks t
+                               WHERE project_id = $1 ${activeFilter}
+                               UNION ALL
+                               SELECT t.id AS task_id, t.parent_id, level + 1
+                               FROM seaview.tasks t
+                               INNER JOIN hierarchy_cte h ON t.parent_id = h.task_id
+                               )
+                           SELECT task_id, MAX (level) AS hierarchy_level
+                           FROM hierarchy_cte
+                           GROUP BY task_id
+                               ),
+                               final_combination AS (
+                           SELECT t.*, th.hierarchy_level, guptvo.collapsed
+                           FROM tasks_for_project t
+                               LEFT JOIN task_hierarchy th
+                           ON t.id = th.task_id
+                               LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
+                               ON t.id = guptvo.task_id AND guptvo.user_id = $2
+                               )
     SELECT *
-    FROM final_combination;`;
+    FROM final_combination
+    WHERE title IS NOT NULL
+      AND title != 'Blank'
+    ORDER BY start_date ASC;`;
     try {
-        console.log('getCombinedProjectTaskDetails query: ', combinedQuery);
+        // console.log('getCombinedProjectTaskDetails query: \n\r', combinedQuery);
         const combinedResult = await executeSQL(combinedQuery, [projectID, userID]);
         if (combinedResult.rows.length === 0) {
             throw new Error(`No tasks found for project ID ${projectID}.`);
         }
-        return combinedResult.rows;
+        return combinedResult;
     } catch (error) {
         console.error("Error getting combined project task details:", error);
         throw error;
+    }
+}
+
+async function getProjectUserSetup(projectID, userID) {
+    const query = `SELECT * FROM seaview.gantt_user_project_view_options WHERE project_id = $1 AND user_id = $2`;
+    try {
+        const result = await executeSQL(query, [projectID, userID]);
+        if (result.rows.length === 0) {
+            throw new Error(`Error getting project user setup for Project: ${projectID}, User: ${userID}`);
+        }
+        return result.rows[0];
+    } catch (error) {
+        console.error("Error getting project user setup:", error);
+        throw error;
+    }
+}
+
+async function getTaskDependencies(taskID) {
+    const query = `SELECT * FROM seaview.task_dependencies WHERE successor_id = ${taskID}`;
+    try {
+        const result = await executeSQL(query);
+        if (result.rows.length === 0) {
+            // throw new Error(`Error getting task dependencies for task ID ${taskID}`);
+            return [{'predecessor_id': -1, 'successor_id': -1}];
+        }
+        return result.rows;
+    } catch (error) {
+        console.error("Error getting task dependencies:", error);
     }
 }
 
@@ -1133,7 +1165,9 @@ module.exports = {
     getProjectJSON,
     getProjectTaskUserSetup,
     countTaskAncestors,
-    getCombinedProjectTaskDetails
+    getCombinedProjectTaskDetails,
+    getProjectUserSetup,
+    getTaskDependencies
 }
 
 

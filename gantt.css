@@ -35,8 +35,8 @@ body{
   padding:4px 2px;
   border-bottom: 1px solid #eee;
   border-right: 1px solid #eee;
-  font-family: arial, helvetica, sans-serif;
 }
+
 
 .gdfCell.noClip{
   overflow: visible;
@@ -45,9 +45,10 @@ body{
 .gdfColHeader {
   min-width: 5px;
   height: 30px;
-  background-color: #eee;
+  background-color: rgba(255, 255, 255, 0.50);
   border-bottom:2px solid #bbb;
   border-right: 1px solid #bbb;
+  word-break: break-word;
 }
 
 .gdfColHeader:last-of-type {
@@ -62,12 +63,19 @@ body{
 .gdfCellInput {
   border: 0 none;
   font-size: 12px;
+  font-weight: bold;
   height: 20px;
   margin: 0;
   padding: 0;
   width: 100%;
   background-color: #d4fbe8;
 }
+
+.gdfTable .gdfCellInput {
+  /* your styles */
+  font-family: 'League Spartan' !important;
+}
+
 
 .gdfCellWrap {
   border: 0 none;
@@ -398,6 +406,7 @@ body{
 
 .taskEditRow input, .columnWidthTest{
   border: 0 none;
+  font-family: 'League Spartan',Arial, Helvetica, sans-serif; //This is the font used in the table
   font-size: 14px;
   height: 20px;
   margin: 0;
@@ -464,28 +473,32 @@ input[readonly]{
   border:0;
   cursor: pointer;
 }
-.taskStatus[status=STATUS_ACTIVE]{
-  background-color: #3BBF67;
+.taskStatus[status=BACKLOG]{
+  background-color: rgba(179, 157, 90, 1.0);
   color: #fff;
 }
-.taskStatus[status=STATUS_DONE]{
-  background-color: #6EBEF4;
+.taskStatus[status=IN_PROGRESS]{
+  background-color: #f4de6e;
   color:#000;
 }
-.taskStatus[status=STATUS_FAILED]{
-  background-color: #763A96;
+.taskStatus[status=BLOCKED]{
+  background-color: #ff0000;
   color: #fff;
 }
-.taskStatus[status=STATUS_SUSPENDED]{
-  background-color: #F9C154;
+.taskStatus[status=CANCELLED]{
+  background-color: #444444;
   color:#000;
 }
-.taskStatus[status=STATUS_WAITING]{
-  background-color:#F79136;
+.taskStatus[status=RETIRED]{
+  background-color: #3690f7;
   color:#000;
 }
-.taskStatus[status=STATUS_UNDEFINED]{
-  background-color: #dededf;
+.taskStatus[status=COMPLETE]{
+  background-color: #3aa83a;
+  color:#000;
+}
+.taskStatus[status=DEFERRED]{
+  background-color: #aaaaaa;
   color:#000;
 }
 .taskStatus.selected{
@@ -596,26 +609,59 @@ select.taskStatus{
   stroke-dasharray:2,2;
 }
 
-.colorByStatus .taskStatusSVG[status=STATUS_ACTIVE]{
-  fill: #3BBF67;
+/*taskStatus[status=BACKLOG]{*/
+/*  background-color: rgba(179, 157, 90, 1.0);*/
+/*  color: #fff;*/
+/*}*/
+/*.taskStatus[status=IN_PROGRESS]{*/
+/*  background-color: #f4de6e;*/
+/*  color:#000;*/
+/*}*/
+/*.taskStatus[status=BLOCKED]{*/
+/*  background-color: #ff0000;*/
+/*  color: #fff;*/
+/*}*/
+/*.taskStatus[status=CANCELLED]{*/
+/*  background-color: #444444;*/
+/*  color:#000;*/
+/*}*/
+/*.taskStatus[status=RETIRED]{*/
+/*  background-color: #3690f7;*/
+/*  color:#000;*/
+/*}*/
+/*.taskStatus[status=COMPLETE]{*/
+/*  background-color: #3aa83a;*/
+/*  color:#000;*/
+/*}*/
+/*.taskStatus[status=DEFERRED]{*/
+/*  background-color: #aaaaaa;*/
+/*  color:#000;*/
+
+.colorByStatus .taskStatusSVG[status=BACKLOG]{
+  fill: rgba(179, 157, 90, 1.0);
 }
-.colorByStatus .taskStatusSVG[status=STATUS_DONE]{
-  fill: #6EBEF4;
+.colorByStatus .taskStatusSVG[status=IN_PROGRESS]{
+  fill: #f4de6e;
 }
-.colorByStatus .taskStatusSVG[status=STATUS_FAILED]{
-  fill: #763A96;
+.colorByStatus .taskStatusSVG[status=BLOCKED]{
+  fill: #ff0000;
 }
-.colorByStatus .taskStatusSVG[status=STATUS_SUSPENDED]{
-  fill: #f9c154;
+.colorByStatus .taskStatusSVG[status=CANCELLED]{
+  fill: #444444;
 }
-.colorByStatus .taskStatusSVG[status=STATUS_UNDEFINED]{
-  fill: #dededf;
+.colorByStatus .taskStatusSVG[status=RETIRED]{
+  fill: #3690f7;
 }
-.colorByStatus .taskStatusSVG[status=STATUS_UNDEFINED] .taskLayout{
+.colorByStatus .taskStatusSVG[status=COMPLETE]{
+  fill: #3aa83a;
+}
+.colorByStatus .taskStatusSVG[status=DEFERRED]{
+  fill: #aaaaaa;
+}
+.colorByStatus .taskStatusSVG[status=BACKLOG].taskLayout{
   stroke: #ccc;
   stroke-width:1;
 }
-
 .colorByStatus .taskStatusSVG[status=STATUS_DONE] .textPerc,
 .colorByStatus .taskStatusSVG[status=STATUS_ACTIVE] .textPerc,
 .colorByStatus .taskStatusSVG[status=STATUS_FAILED] .textPerc{
