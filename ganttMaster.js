@@ -584,13 +584,8 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
       if (!project) {
         throw new Error("Failed to load project data from the database.");
       }
-
-
       console.log(`Project ${projectId} loaded from database.`);
       console.log('Project: ' + project);
-
-
-
       // Set time offset from the server
       this.serverClientTimeOffset = typeof project.serverTimeOffset !== "undefined"
           ? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000)
@@ -625,8 +620,10 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
         // Pull in the data for the roles
         // let rolesFromDB = await getEnumerationTable("resourcetype");
         getEnumerationTable("resourcetype").then(rolesFromDB =>  {
+          console.log('rolesFromDB: ' + rolesFromDB);
           let localID = 0;
           for (let role of rolesFromDB) {
+            console.log('role: ' + role.enumlabel);
             if(!this.roles[localID])
             {
               this.roles[localID] = {};
@@ -710,6 +707,7 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
  */
 GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeOnly=true)
 {
+  console.log('loadTasksFromPostgreSQL');
   var factory = new TaskFactory();
   try
   {
@@ -720,25 +718,13 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     console.log('Error resetting GanttMaster:');
     console.log(e);
   }
-  // var tasks = await getProjectTasksFromServer(projectID, activeOnly);
-  // // console.log('tasks:' + tasks.rowCount);
-  // for(var i = 0; i < tasks.rowCount; i++)
-  // {
-  //   var task = tasks.rows[i];
-  //
-  //   // TODO: Move task setup and levels to the server side
-  //   // console.log(`tasks[${i}]: ${task.id}`);
-  //   var taskSetup = await getProjectTaskUserSetup(task.id);
-  //   // console.log(`taskSetup: ${taskSetup.collapsed}`);
-  //   var taskLevel = await getTaskAncestorCount(task.id);
-  //   // console.log(`taskLevel: ${taskLevel}`);
-  //   const t = factory.build(task.id, task.title, 'misc', taskLevel, task.start_date, task.duration, taskSetup.collapsed);
-  //   task.master = this;
-  //   this.tasks.push(t)
-  // }
+  /* TODO - Need to update with a cookie based system as a stand in for other look up from other systems that
+      require payment
+   */
   const userID = await getMyUserID();
   let selectedRow;
   const tasks = await getCombinedProjectTaskDetails(projectID, userID, activeOnly);
+
 
   for (let k = 0; k < tasks.rowCount; k++) {
     const task = tasks.rows[k];
@@ -758,16 +744,20 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
         task.collapsed
     );
 
+
     // Finalize task and add to the master list
     t.master = this;
     this.tasks.push(t);
 
   }
-
+  console.log('test debug');
   for(let k = 0; k < this.tasks.length; k++)
   {
     // Fetch task dependencies
     const dependencies = await getTaskDependencies(this.tasks[k].id);
+    const taskResource = await getTaskResources(this.tasks[k].id);
+
+    console.log('taskResource:', taskResource);
 
     // Process dependencies
     if (dependencies[0].successor_id !== -1)
@@ -809,31 +799,51 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     } else {
       this.tasks[k].depends = '';
     }
-    
-    
-    
-    // Optional: debugging output (comment in production)
-    // console.log('dependencies:' + this.tasks[k].depends + ' task.id:' + this.tasks[k].id);
 
+    this.tasks[k].assigs = [];
+    if(taskResource.length > 0 && this.roles.length > 0)
+    {
+      for(let j = 0; j < taskResource.length; j++)
+      {
+        const resourceID = taskResource[j].resource_id;
+
+
+        // Look up the resource type from this.resources based on the taskResource id - 1
+        const resourceType = this.resources[resourceID - 1].resourceType;
+
+        if (resourceType)
+        {
+          // Search the this.roles array for a role matching the resource type
+          const role = this.roles.find(role => role.name === resourceType);
+
+          if (role)
+          {
+            const roleID = role.id;
+
+            const id = 'resId_' + resourceID + '_roleId_' + role.id;
+            const effort = this.tasks[k].duration * 3600000 * 24;
+            const assig = {resourceId: resourceID, id: id, roleId: roleID, effort: effort};
+            this.tasks[k].assigs.push(assig);
+          } else
+          {
+            console.warn(`No role found for resource type: ${resourceType}`);
+          }
+        } else
+        {
+          console.warn(`No resource type found for resource ID: ${resourceID}`);
+        }
+      }
+    }
   }
 
 
-  for (var i = 0; i < this.tasks.length; i++) {
+
+  for (var i = 0; i < this.tasks.length; i++)
+  {
     var task = this.tasks[i];
     var numOfError = this.__currentTransaction && this.__currentTransaction.errors ? this.__currentTransaction.errors.length : 0;
-    //add Link collection in memory
-    // while (!this.updateLinks(task)) {  // error on update links while loading can be considered as "warning". Can be displayed and removed in order to let transaction commits.
-    //   if (this.__currentTransaction && numOfError != this.__currentTransaction.errors.length) {
-    //     var msg = "ERROR:\n";
-    //     while (numOfError < this.__currentTransaction.errors.length) {
-    //       var err = this.__currentTransaction.errors.pop();
-    //       msg = msg + err.msg + "\n\n";
-    //     }
-    //     alert(msg);
-    //   }
-    //   this.__removeAllLinks(task, false);
-    // }
-    if (!task.setPeriod(task.start, task.end)) {
+    if (!task.setPeriod(task.start, task.end))
+    {
       alert(GanttMaster.messages.GANNT_ERROR_LOADING_DATA_TASK_REMOVED + "\n" + task.name );
       //remove task from in-memory collection
       this.tasks.splice(task.getRow(), 1);

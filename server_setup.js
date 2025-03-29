@@ -34,7 +34,7 @@ const { executeSQL,
     countTaskAncestors,
     getCombinedProjectTaskDetails,
     getProjectUserSetup,
-    getTaskDependencies
+    getTaskDependencies, getTaskResources
 
 } = require('./seaviewConnection');
 
@@ -196,7 +196,15 @@ app.get('/portfolioContents', async (req, res) => {
             return res.status(400).send('Portfolio ID not provided.');
         }
         const contents = await getPortfolioContents(portfolioId);
-        res.json(contents);
+        console.log('Portfolio contents:', contents);
+        if(contents.length === 0)
+        {
+            res.json([]);
+        }
+        else
+        {
+            res.json(contents);
+        }
     } catch (error) {
         console.error('Error fetching portfolio contents:', error);
         res.status(500).send('An error occurred while fetching portfolio contents.');
@@ -500,6 +508,17 @@ app.get('/getTaskDependencies', async (req, res) => {
         res.status(500).send('An error occurred while getting the task dependencies.');
     }
 });
+
+app.get('/getTaskResources', async (req, res) => {
+    const taskId = req.query.taskId;
+    try{
+        const resources = await getTaskResources(taskId);
+        res.json(resources);
+    } catch (error) {
+        console.error('Error getting task resources:', error);
+        res.status(500).send('An error occurred while getting the task resources.');
+    }
+})
 
 // Start the server
 app.listen(PORT, () => {

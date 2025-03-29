@@ -357,8 +357,14 @@ function() {
                 console.error("Project not found or invalid.");
                 throw new Error("Invalid project");
             }
-            console.log("GANTT project:", project);
+            console.log("Roles");
+            console.log(ge.roles);
+            console.log("GANTT Debug 0");
+            return project;
+        }).then(async project => {
+            console.log("G Debug: 1");
             const tasks = await ge.loadTasksFromPostgreSQL(1);
+            console.log("G Debug: 2");
             return {project, tasks};
         }).then(({project, tasks}) => {
             console.log("Successfully loaded tasks:", tasks);

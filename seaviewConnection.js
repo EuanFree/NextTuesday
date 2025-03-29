@@ -880,16 +880,23 @@ async function addBlankResource() {
 }
 
 
-async function getPortfolioContents(portfolioID){
-    const query = `SELECT projects, programmes FROM seaview.portfolios WHERE portfolio_id = ${portfolioID}`;
+async function getPortfolioContents(portfolioID)
+{
+    const query = `SELECT id AS programme_id, NULL AS project_id FROM seaview.programmes WHERE portfolio_id = ${portfolioID}
+                            UNION SELECT NULL AS programme_id, id AS project_id FROM seaview.projects WHERE portfolio_id = ${portfolioID}`;
     try
     {
         const result = await executeSQL(query);
-        if (result.rows.length > 0) {
-            return result.rows[0];
-        } else {
-            throw new Error(`Portfolio with ID ${portfolioID} not found.`);
-        }
+        console.log(result.rows);
+        // if (result.rows.length > 0)
+        // {
+        //     return result.rows[0];
+        // }
+        // else
+        // {
+        //     throw new Error(`Portfolio with ID ${portfolioID} not found.`);
+        // }
+        return result.rows;
     }
     catch(error)
     {
@@ -904,12 +911,16 @@ async function getProgrammeContents(programID)
     try
     {
         const result = await executeSQL(query);
-        if (result.rows.length > 0) {
+        if (result.rows.length > 0)
+        {
             return result.rows[0];
-        } else {
+        }
+        else
+        {
             throw new Error(`Program with ID ${programID} not found.`);
         }
-    } catch (error) {
+    } catch (error)
+    {
         console.error("Error getting program contents:", error);
         throw error;
     }
@@ -1132,6 +1143,21 @@ async function getTaskDependencies(taskID) {
     }
 }
 
+async function getTaskResources(taskID) {
+    const query = `SELECT resource_id FROM seaview.task_resource_association WHERE task_id = ${taskID}`;
+    try {
+        const result = await executeSQL(query);
+        console.log('getTaskResources result: ', result);
+        if (result.rows.length === 0) {
+            console.log('Error getting task resources for task ID' + taskID + ' : ' + result.rows.length);
+            return [];
+        }
+        console.log('getTaskResources result: ', result.rows);
+        return result.rows;
+    } catch (error) {
+        console.error("Error getting task resources:", error);
+    }
+}
 
 //Export functions
 module.exports = {
@@ -1167,7 +1193,8 @@ module.exports = {
     countTaskAncestors,
     getCombinedProjectTaskDetails,
     getProjectUserSetup,
-    getTaskDependencies
+    getTaskDependencies,
+    getTaskResources
 }
 
 

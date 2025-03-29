@@ -80,11 +80,8 @@ const getPortfolioContentsFromServer = async(portfolioId) => {
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const json = await response.json();
-        console.log("Portfolio Contents: ", json);
-        const rows = json.rows;
-        console.log("Rows: ");
-        console.log(rows);
+        const rows = await response.json();
+        console.log("Portfolio Contents: ", rows);
         return rows;
     } catch (error) {
         console.error(`Error fetching portfolio contents for ID ${portfolioId}:`, error);
@@ -499,5 +496,20 @@ const getTaskDependencies = async (taskId) => {
     }
     catch(error){
         console.error(`Error fetching task dependencies:`, error);
+    }
+}
+
+const getTaskResources = async (taskId) => {
+    try{
+        const response = await fetch(`${server}/getTaskResources?taskId=${taskId}`);
+        if(!response.ok)
+        {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        return json;
+    }
+    catch(error){
+        console.error(`Error fetching task resources:`, error);
     }
 }
