@@ -494,7 +494,7 @@ Ganttalendar.prototype.drawTask = function (task) {
 
     //svg.title(taskSvg, task.name);
     //external box
-    var layout = svg.rect(taskSvg, 0, 0, "100%", "100%", {class:"taskLayout", rx:"2", ry:"2"});
+    var layout = svg.rect(taskSvg, 0, 0, "100%", "100%", {class:"taskLayout", rx:"4", ry:"4"});
     //external dep
     if (task.hasExternalDep)
       svg.rect(taskSvg, 0, 0, "100%", "100%", {fill:"url(#extDep)"});
@@ -528,8 +528,11 @@ Ganttalendar.prototype.drawTask = function (task) {
 
     //link tool
     if (task.level>0){
-      svg.circle(taskSvg, -self.resizeZoneWidth,  dimensions.height/2,dimensions.height/3, {class:"taskLinkStartSVG linkHandleSVG", transform:"translate("+(-dimensions.height/3+1)+")"});
-      svg.circle(taskSvg, dimensions.width+self.resizeZoneWidth,dimensions.height/2,dimensions.height/3, {class:"taskLinkEndSVG linkHandleSVG", transform:"translate("+(dimensions.height/3-1)+")"});
+      // svg.circle(taskSvg, -self.resizeZoneWidth,  dimensions.height/2,dimensions.height/3, {class:"taskLinkStartSVG linkHandleSVG", transform:"translate("+(-dimensions.height/3+1)+")"});
+      // svg.circle(taskSvg, dimensions.width+self.resizeZoneWidth,dimensions.height/2,dimensions.height/3, {class:"taskLinkEndSVG linkHandleSVG", transform:"translate("+(dimensions.height/3-1)+")"});
+      svg.polygon(taskSvg, [[-self.resizeZoneWidth - 5, dimensions.height / 2], [-self.resizeZoneWidth + dimensions.height / 3 - 5, dimensions.height / 2 - dimensions.height / 3], [-self.resizeZoneWidth + dimensions.height / 3 - 5, dimensions.height / 2 + dimensions.height / 3]], {class: "taskLinkStartSVG linkHandleSVG"});
+      svg.polygon(taskSvg, [[dimensions.width + self.resizeZoneWidth + 5, dimensions.height / 2], [dimensions.width + self.resizeZoneWidth - dimensions.height / 3 + 5, dimensions.height / 2 - dimensions.height / 3], [dimensions.width + self.resizeZoneWidth - dimensions.height / 3 + 5, dimensions.height / 2 + dimensions.height / 3]], {class: "taskLinkEndSVG linkHandleSVG"});
+
     }
     return taskSvg
   }

@@ -138,9 +138,9 @@ GanttMaster.prototype.init = function (workSpace) {
   place.append(this.editor.gridified);
 
   //create gantt
-  console.log('init gantt');
+  // console.log('init gantt');
   this.gantt = new Ganttalendar(new Date().getTime() - 3600000 * 24 * 2, new Date().getTime() + 3600000 * 24 * 5, this, place.width() * .6);
-  console.log('init gantt done');
+  // console.log('init gantt done');
   //setup splitter
   self.splitter = $.splittify.init(place, this.editor.gridified, this.gantt.element, 60);
   self.splitter.firstBoxMinWidth = 5;
@@ -578,14 +578,14 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
     this.beginTransaction();
 
     // Fetch the project JSON from the database using the external function
-    console.log(`Loading project ${projectId} from database and user ${userID}...`);
+    // console.log(`Loading project ${projectId} from database and user ${userID}...`);
     // const project = await getProjectJSON(projectId, userID);
     getProjectJSON(projectId, userID).then(project =>  {
       if (!project) {
         throw new Error("Failed to load project data from the database.");
       }
-      console.log(`Project ${projectId} loaded from database.`);
-      console.log('Project: ' + project);
+      // console.log(`Project ${projectId} loaded from database.`);
+      // console.log('Project: ' + project);
       // Set time offset from the server
       this.serverClientTimeOffset = typeof project.serverTimeOffset !== "undefined"
           ? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000)
@@ -620,10 +620,10 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
         // Pull in the data for the roles
         // let rolesFromDB = await getEnumerationTable("resourcetype");
         getEnumerationTable("resourcetype").then(rolesFromDB =>  {
-          console.log('rolesFromDB: ' + rolesFromDB);
+          // console.log('rolesFromDB: ' + rolesFromDB);
           let localID = 0;
           for (let role of rolesFromDB) {
-            console.log('role: ' + role.enumlabel);
+            // console.log('role: ' + role.enumlabel);
             if(!this.roles[localID])
             {
               this.roles[localID] = {};
@@ -671,7 +671,9 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
                 this.gantt.zoom = projectSetup.zoom_level;
                 console.log('this.gannt - zoom: ' + this.gantt.zoom);
                 this.gantt.storeZoomLevel();
+                // console.log("+++++++++++> GM Debug 1");
                 this.gantt.redraw(); // Redraw the chart now that the zoom level has been set
+                // console.log("+++++++++++> GM Debug 2");
                 // this.gantt.goToMillis(this,gantt.getCe)
               } else {
                 this.gantt.shrinkBoundaries();
@@ -679,11 +681,13 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
               }
               // End the transaction
               this.endTransaction();
+              // console.log("++++++++++> GM Debug 3");
               // Center Gantt on today's date
               const self = this;
               this.gantt.element.oneTime(200, () => {
                 self.gantt.centerOnToday();
               });
+              // console.log("++++++++++> GM Debug 4");
             })
           });
         })
@@ -697,6 +701,17 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
   }
 };
 
+let taskChangeTracking = false;
+
+function handleTaskChanges(changes) {
+  if(taskChangeTracking)
+  {
+    console.log("Task Changes Tracking on?:",taskChangeTracking);
+    console.log("*******************Batched Task Changes*****************************:");
+    changes.forEach(change => console.log(change));
+  }
+}
+
 /**
  * Asynchronously loads tasks for a given project from PostgreSQL and initializes them in the GanttMaster object.
  * The method sets up tasks, their properties, links, and periods, and adds tasks to editor and Gantt views.
@@ -707,7 +722,9 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
  */
 GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeOnly=true)
 {
-  console.log('loadTasksFromPostgreSQL');
+  taskChangeTracking = false;
+  // console.log('loadTasksFromPostgreSQL');
+  // console.log('taskChangeTracking:',taskChangeTracking);
   var factory = new TaskFactory();
   try
   {
@@ -729,9 +746,9 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
   for (let k = 0; k < tasks.rowCount; k++) {
     const task = tasks.rows[k];
 
-    if (k === 0) {
-      console.log('taskdata:', task);
-    }
+    // if (k === 0) {
+    //   console.log('taskdata:', task);
+    // }
 
     // Build the task
     const t = factory.build(
@@ -741,8 +758,13 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
         task.hierarchy_level,
         task.start_date,
         task.duration,
-        task.collapsed
+        task.collapsed,
+        handleTaskChanges
     );
+
+
+
+    t.status = task.status;
 
 
     // Finalize task and add to the master list
@@ -750,14 +772,14 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     this.tasks.push(t);
 
   }
-  console.log('test debug');
+  // console.log("Test Point 1");
   for(let k = 0; k < this.tasks.length; k++)
   {
     // Fetch task dependencies
     const dependencies = await getTaskDependencies(this.tasks[k].id);
     const taskResource = await getTaskResources(this.tasks[k].id);
 
-    console.log('taskResource:', taskResource);
+    // console.log('taskResource:', taskResource);
 
     // Process dependencies
     if (dependencies[0].successor_id !== -1)
@@ -775,9 +797,27 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
         const successorId = dependencies[j].successor_id;
         const lag = dependencies[j].lag || 0;
 
-        // Find the from and to tasks in the this.tasks array
-        const fromTask = this.tasks.find(task => task.id === predecessorId);
-        const toTask = this.tasks.find(task => task.id === successorId);
+        // // Find the from and to tasks in the this.tasks array
+        // let fromTask = this.tasks.find(task => (task.id === predecessorId || (task.id && task.id.id === predecessorId)));
+        // let toTask = this.tasks.find(task => (task.id === successorId || (task.id && task.id.id === successorId)));
+        // fromTask = { ...fromTask };
+        // toTask = { ...toTask };
+        //
+        // // Ensure fromTask and toTask have all the required functions from Task prototype
+        // if (fromTask) {
+        //   Object.setPrototypeOf(fromTask, Task.prototype);
+        // }
+        // if (toTask) {
+        //   Object.setPrototypeOf(toTask, Task.prototype);
+        // }
+
+        let fromTask = this.tasks.find(task => (task.id === predecessorId));
+        let toTask = this.tasks.find(task => (task.id === successorId));
+
+        // console.log('fromTask:', fromTask);
+        // console.log('toTask:', toTask);
+        // console.log('fromTask.id:', fromTask.id);
+        // console.log('toTask.id:', toTask.id);
 
         if (fromTask && toTask) {
           // Create a new link object and add it to the this.links array
@@ -788,6 +828,7 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
             lag: lag
           };
 
+          // console.log('link:', link);
           // this.links = this.links || [];
           this.links.push(link);
         } else {
@@ -836,7 +877,7 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     }
   }
 
-
+  console.log("Test Point 2");
 
   for (var i = 0; i < this.tasks.length; i++)
   {
@@ -854,7 +895,7 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
       this.gantt.addTask(task);
     }
   }
-
+  console.log("Test Point 3");
   //this.editor.fillEmptyLines();
   //prof.stop();
 
@@ -863,159 +904,18 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
   {
     selectedRow = 0;
   }
-
+  console.log("Test Point 4");
 
   // re-select old row if tasks is not empty
   if (this.tasks && this.tasks.length > 0) {
     selectedRow = selectedRow ? selectedRow : 0;
     this.tasks[selectedRow].rowElement.click();
   }
-
+  taskChangeTracking = true;
+  console.log('taskChangeTracking - End:',taskChangeTracking);
+  console.log('>>>>>>>>End of task loading <<<<<<<<<<');
   return true;
 }
-
-
-/**
- * Loads a project into the GanttMaster instance.
- *
- * This method initializes the GanttMaster instance with the data related to the project.
- * It sets up tasks, resources, and dependencies, and prepares the Gantt chart for rendering.
- *
- * @param {Object} project - The project data containing tasks, resources, and dependencies.
- * @throws {Error} Throws an error if the input project data is invalid or incomplete.
- * @returns {boolean} Returns true if the project is successfully loaded, otherwise false.
- */
-GanttMaster.prototype.loadProject = function (project) {
-  //console.debug("loadProject", project)
-  this.beginTransaction();
-  this.serverClientTimeOffset = typeof project.serverTimeOffset !="undefined"? (parseInt(project.serverTimeOffset) + new Date().getTimezoneOffset() * 60000) : 0;
-  this.resources = project.resources;
-  this.roles = project.roles;
-
-  //permissions from loaded project
-  this.permissions.canWrite = project.canWrite;
-  this.permissions.canAdd = project.canAdd;
-  this.permissions.canWriteOnParent = project.canWriteOnParent;
-  this.permissions.cannotCloseTaskIfIssueOpen = project.cannotCloseTaskIfIssueOpen;
-  this.permissions.canAddIssue = project.canAddIssue;
-  this.permissions.canDelete = project.canDelete;
-  //repaint button bar basing on permissions
-  this.checkButtonPermissions();
-
-
-
-  if (project.minEditableDate)
-    this.minEditableDate = computeStart(project.minEditableDate);
-  else
-    this.minEditableDate = -Infinity;
-
-  if (project.maxEditableDate)
-    this.maxEditableDate = computeEnd(project.maxEditableDate);
-  else
-    this.maxEditableDate = Infinity;
-
-
-  //recover stored ccollapsed statuas
-  var collTasks=this.loadCollapsedTasks();
-
-  //shift dates in order to have client side the same hour (e.g.: 23:59) of the server side
-  for (var i = 0; i < project.tasks.length; i++) {
-    var task = project.tasks[i];
-    task.start += this.serverClientTimeOffset;
-    task.end += this.serverClientTimeOffset;
-    //set initial collapsed status
-    task.collapsed=collTasks.indexOf(task.id)>=0;
-  }
-
-
-  this.loadTasks(project.tasks, project.selectedRow);
-  this.deletedTaskIds = [];
-
-
-  //recover saved zoom level
-  if (project.zoom){
-    this.gantt.zoom = project.zoom;
-  } else {
-    this.gantt.shrinkBoundaries();
-    this.gantt.setBestFittingZoom();
-  }
-
-
-  this.endTransaction();
-  var self = this;
-  this.gantt.element.oneTime(200, function () {self.gantt.centerOnToday()});
-};
-
-
-
-/**
- * Loads a list of tasks into the Gantt chart and processes them for rendering.
- *
- * @param {Array} tasks - An array of task objects to be loaded. Each task object should have the required fields necessary for Gantt chart rendering.
- * @throws {Error} Throws an error if the tasks array is invalid or if any task object is improperly formatted.
- */
-// GanttMaster.prototype.loadTasks = function (tasks, selectedRow) {
-//   //console.debug("GanttMaster.prototype.loadTasks")
-//   //var prof=new Profiler("ganttMaster.loadTasks");
-//   var factory = new TaskFactory();
-//
-//   //reset
-//   this.reset();
-//
-//   for (var i = 0; i < tasks.length; i++) {
-//     var task = tasks[i];
-//     if (!(task instanceof Task)) {
-//       var t = factory.build(task.id, task.name, task.code, task.level, task.start, task.duration, task.collapsed);
-//       for (var key in task) {
-//         if (key != "end" && key != "start")
-//           t[key] = task[key]; //copy all properties
-//       }
-//       task = t;
-//     }
-//     task.master = this; // in order to access controller from task
-//     this.tasks.push(task);  //append task at the end
-//   }
-//
-//   for (var i = 0; i < this.tasks.length; i++) {
-//     var task = this.tasks[i];
-//
-//
-//     var numOfError = this.__currentTransaction && this.__currentTransaction.errors ? this.__currentTransaction.errors.length : 0;
-//     //add Link collection in memory
-//     while (!this.updateLinks(task)) {  // error on update links while loading can be considered as "warning". Can be displayed and removed in order to let transaction commits.
-//       if (this.__currentTransaction && numOfError != this.__currentTransaction.errors.length) {
-//         var msg = "ERROR:\n";
-//         while (numOfError < this.__currentTransaction.errors.length) {
-//           var err = this.__currentTransaction.errors.pop();
-//           msg = msg + err.msg + "\n\n";
-//         }
-//         alert(msg);
-//       }
-//       this.__removeAllLinks(task, false);
-//     }
-//
-//     if (!task.setPeriod(task.start, task.end)) {
-//       alert(GanttMaster.messages.GANNT_ERROR_LOADING_DATA_TASK_REMOVED + "\n" + task.name );
-//       //remove task from in-memory collection
-//       this.tasks.splice(task.getRow(), 1);
-//     } else {
-//       //append task to editor
-//       this.editor.addTask(task, null, true);
-//       //append task to gantt
-//       this.gantt.addTask(task);
-//     }
-//   }
-//
-//   //this.editor.fillEmptyLines();
-//   //prof.stop();
-//
-//   // re-select old row if tasks is not empty
-//   if (this.tasks && this.tasks.length > 0) {
-//     selectedRow = selectedRow ? selectedRow : 0;
-//     this.tasks[selectedRow].rowElement.click();
-//   }
-// };
-
 
 /**
  * Retrieves a task by its unique identifier (ID).
@@ -1099,13 +999,13 @@ GanttMaster.prototype.moveTask = function (task, newStart) {
 
 
 /**
- * This method is triggered when a task is modified.
+ * This method is triggered when a task is modified. NOTE: No it doesn't!!!!
  * It handles the changes to a task within the GanttMaster project management system.
  *
  * @param {Object} task - The task object that has been changed.
  */
 GanttMaster.prototype.taskIsChanged = function () {
-  //console.debug("taskIsChanged");
+  // console.debug("taskIsChanged");
   var master = this;
 
   //refresh is executed only once every 50ms
@@ -1114,6 +1014,9 @@ GanttMaster.prototype.taskIsChanged = function () {
   this.element.oneTime(50, "gnnttaskIsChanged", function () {
     //console.debug("task Is Changed real call to redraw");
     //var profiler = new Profiler("gm_taskIsChangedReal");
+    
+
+    
     master.redraw();
     master.element.trigger("gantt.redrawCompleted");
     //profiler.stop();

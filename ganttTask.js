@@ -21,6 +21,208 @@
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+// function createGroupedDebouncedCallback(fn, delay = 200) {
+//   let queue = [];
+//   let timeout;
+//
+//   return function (change) {
+//     queue.push(change);
+//     clearTimeout(timeout);
+//     timeout = setTimeout(() => {
+//       fn(queue);
+//       queue = [];
+//     }, delay);
+//   };
+// }
+
+
+function createDebouncedCallback(callback, delay = 200) {
+  let changes = [];
+  let timeout;
+
+  return function (change) {
+    changes.push(change);
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      callback(changes);
+      changes = [];
+    }, delay);
+  };
+}
+
+function createShallowProxy(target, onChangeCallback) {
+  const debouncedCallback = createDebouncedCallback(onChangeCallback, 200);
+  const monitoredKeys = new Set(["name",
+    "progress",
+    "relevance",
+    "level",
+    "status",
+    "description",
+    "type",
+    "depends",
+    "start",
+    "duration",
+    "assigs",
+    "collapsed",
+  "master",]);
+
+  return new Proxy(target, {
+
+    set(obj, prop, value)
+    {
+      // console.log("set", obj, prop, value);
+      if (monitoredKeys.has(prop))
+      {
+        const oldValue = obj[prop];
+
+        if (oldValue !== value) {
+          obj[prop] = value;
+
+          if (typeof onChangeCallback === "function")
+          {
+            debouncedCallback({
+              id: obj.id,
+              property: prop,
+              oldValue: oldValue,
+              newValue: value
+            });
+          }
+        }
+      }
+      else
+      {
+        if(prop === "master" || prop === "ganttElement")
+        {
+
+          if (obj.master)
+          {
+            const master = obj.master;
+            const undoStack = master.__undoStack;
+
+            // Check if the master object and its undoStack are formatted correctly
+            if (Array.isArray(undoStack) && undoStack.length > 0) {
+              // Get the status before the change from the undo stack
+              const beforeChange = JSON.parse(undoStack[undoStack.length - 1]);
+
+              if (beforeChange && beforeChange.tasks)
+              {
+                const currentTask = beforeChange.tasks.find(task => task.id === obj.id);
+
+                if (currentTask)
+                {
+                  const changes = Object.keys(currentTask).reduce((acc, key) =>
+                  {
+                    if (Array.isArray(currentTask[key]) && Array.isArray(obj[key]))
+                    {
+                      if (Array.isArray(currentTask[key]) && Array.isArray(obj[key])) {
+                        if (currentTask[key].length !== obj[key].length || !currentTask[key].every((val, index) => {
+                          const currentValString = typeof val === "object" ? JSON.stringify(val) : val;
+                          const objValString = typeof obj[key][index] === "object" ? JSON.stringify(obj[key][index]) : obj[key][index];
+                          return currentValString === objValString;
+                        })) {
+                          acc[key] = {oldValue: currentTask[key], newValue: obj[key]};
+                          console.log("old value ", currentTask[key], " new value", obj[key]);
+                        }
+                      }
+                    }
+                    else if (currentTask[key] !== obj[key])
+                    {
+                      acc[key] = {
+                        oldValue: currentTask[key],
+                        newValue: obj[key],
+                      };
+                    }
+                    return acc;
+                  }, {});
+
+                  if (Object.keys(changes).length > 0)
+                  {
+                    console.log("Changes detected for task:", obj.id);
+                    console.log("Change Details:", changes);
+                  } else
+                  {
+                    console.log("No changes detected for task:", obj.id);
+                  }
+                }
+                else
+                {
+                  // console.log("Task with ID:", obj.id, "was not found in the undo stack.");
+                }
+              }
+              else
+              {
+                // console.log("No relevant task data found in the undo stack.");
+              }
+            }
+            else
+            {
+              // console.log("Undo stack is empty or improperly formatted.");
+            }
+          }
+        }
+        obj[prop] = value;
+      }
+      return true;
+    },
+
+    // get(obj, prop) {
+    //   const value = obj[prop];
+    //   return typeof value === "function" ? value.bind(obj) : value;
+    // }
+
+    get(obj, prop) {
+      const value = obj[prop];
+
+      if (typeof value === "function") {
+        return function (...args) {
+          return value.apply(obj, args);
+        };
+      }
+
+      return value;
+    }
+  });
+
+}
+
+
+// function createDeepProxy(target, onChange, path = "") {
+//   if (target === null || typeof target !== "object" || target instanceof Date) {
+//     return target;
+//   }
+//
+//   return new Proxy(target, {
+//     get(obj, prop) {
+//       const fullPath = path ? `${path}.${String(prop)}` : String(prop);
+//       const value = obj[prop];
+//
+//       if (typeof value === "function") {
+//         return value.bind(obj);
+//       }
+//
+//       return createDeepProxy(value, onChange, fullPath);
+//     },
+//     set(obj, prop, value) {
+//       const fullPath = path ? `${path}.${String(prop)}` : String(prop);
+//       const oldValue = obj[prop];
+//
+//       if (oldValue !== value) {
+//         obj[prop] = value;
+//         if (typeof onChange === "function") {
+//           onChange({
+//             path: fullPath,
+//             property: prop,
+//             oldValue: oldValue,
+//             newValue: value,
+//           });
+//         }
+//       }
+//
+//       return true;
+//     }
+//   });
+// }
+
 
 
 
@@ -28,19 +230,44 @@
  * TaskFactory is a constructor function that provides functionality to
  * create and manage Task instances.
  */
+// function TaskFactory() {
+//
+//   /**
+//    * Build a new Task
+//    */
+//   this.build = function (id, name, code, level, start, duration, collapsed) {
+//     // Set at beginning of day
+//     var adjusted_start = computeStart(start);
+//     var calculated_end = computeEndByDuration(adjusted_start, duration);
+//     return new Task(id, name, code, level, adjusted_start, calculated_end, duration, collapsed);
+//   };
+// }
+
+// function TaskFactory() {
+//   this.build = function (id, name, code, level, start, duration, collapsed, onChangesCallback) {
+//     const adjusted_start = computeStart(start);
+//     const calculated_end = computeEndByDuration(adjusted_start, duration);
+//     const task = new Task(id, name, code, level, adjusted_start, calculated_end, duration, collapsed);
+//
+//     // Wrap the callback in a grouped + debounced handler
+//     const groupedDebouncedCallback = createGroupedDebouncedCallback(onChangesCallback, 250);
+//
+//     // Return a deep proxy
+//     return createDeepProxy(task, groupedDebouncedCallback);
+//   };
+// }
+
 function TaskFactory() {
+  this.build = function (id, name, code, level, start, duration, collapsed, onChangeCallback) {
+    const adjusted_start = computeStart(start);
+    const calculated_end = computeEndByDuration(adjusted_start, duration);
+    const task = new Task(id, name, code, level, adjusted_start, calculated_end, duration, collapsed);
 
-  /**
-   * Build a new Task
-   */
-  this.build = function (id, name, code, level, start, duration, collapsed) {
-    // Set at beginning of day
-    var adjusted_start = computeStart(start);
-    var calculated_end = computeEndByDuration(adjusted_start, duration);
-    return new Task(id, name, code, level, adjusted_start, calculated_end, duration, collapsed);
+    return createShallowProxy(task, onChangeCallback);
+    // return {task: task, proxy:createShallowProxy(task, onChangeCallback)};
   };
-
 }
+
 
 /**
  * Represents a task with properties related to its progress, schedule, permissions, and assignments.
@@ -920,7 +1147,7 @@ Task.prototype.isLocallyBlockedByDependencies = function () {
 Task.prototype.getRow = function () {
   var ret = -1;
   if (this.master)
-    ret = this.master.tasks.indexOf(this);
+    ret = this.master.tasks.findIndex(task => task.id === this.id);
   return ret;
 };
 
@@ -1466,6 +1693,10 @@ Task.prototype.moveDown = function () {
   return ret;
 };
 
+
+
+
+
 // COMPLETEDTODO: Modify this to match the current statuses for NT
 // ** TODO: Put in place mechanism to bulk cascade the status to all children
 // ** TODO: Have an automatic pop up when task turned to certain statuses - blocked etc.
@@ -1474,9 +1705,9 @@ Task.prototype.moveDown = function () {
  * changed to anything - the logic controlling it seems to be arbitrary
  */
 
-/**
- * Determines if the task's status can be changed to the specified status.
- *
+
+
+/*
  * This function evaluates whether a transition to the given status is valid
  * based on predefined business rules or conditions.
  *
@@ -1486,128 +1717,6 @@ Task.prototype.moveDown = function () {
 Task.prototype.canStatusBeChangedTo = function (newStatus) {
   return true
 }
-
-// /**
-//  * Determines if the status of the current task can be changed to the specified new status.
-//  *
-//  * @param {string} newStatus - The new status to which the current task is being evaluated.
-//  * Possible statuses: "COMPLETE", "IN_PROGRESS", "BLOCKED", "DEFERRED",
-//  * "RETIRED", "BACKLOG", "CANCELLED".
-//  *
-//  * @return {boolean} Returns true if the status can be changed to the specified newStatus
-//  * based on the rules for each status and the task's current state and relationships.
-//  * Otherwise, returns false.
-//  */
-// Task.prototype.canStatusBeChangedTo = function (newStatus) {
-//   // The current status is always valid
-//   if (newStatus == this.status)
-//     return true;
-//
-//   var parent = this.getParent();
-//
-//
-//   // Get an array of parent tasks
-//   var parents = this.getParents();
-//
-//   /* Capture status cascade for relevant statuses - Blocked, Complete, Retired, Cancelled */
-//
-//   // If any parent is blocked, the task's status cannot be changed to anything but "BLOCKED"
-//   for (var i = 0; i < parents.length; i++) {
-//     if ("BLOCKED" == parents[i].status) {
-//       return "BLOCKED" == newStatus;
-//     }
-//   }
-//
-//
-//   //---------------------------------------------------------------------- Blocked ----------------------------------------------------------------
-// if ("BLOCKED" == newStatus) {
-//   // A task can always be Blocked
-//   if (parent && "BLOCKED" == parent.status)
-//     return true;
-//
-//   var sups = this.getSuperiorTasks();
-//   for (var i = 0; i < sups.length; i++) {
-//     if ("BLOCKED" == sups[i].status || "IN_PROGRESS" == sups[i].status) {
-//       return true;
-//     }
-//   }
-//
-//   return true;
-//   //---------------------------------------------------------------------- Complete ----------------------------------------------------------------
-//   // A task can be Complete if it is a root task
-//   // if its parent has not failed or is not undefined
-//   // if it does not have open previous tasks
-// } else if ("COMPLETE" == newStatus) {
-//     if (!parent)
-//       return true;
-//
-//     if ("RETIRED" == parent.status || "BACKLOG" == parent.status)
-//       return false;
-//
-//     var sups = this.getSuperiorTasks();
-//     for (var i = 0; i < sups.length; i++) {
-//       if ("COMPLETE" != sups[i].status) { // It is an error if a predecessor is not closed
-//         return false;
-//       }
-//     }
-//     return true;
-//
-//
-//     /**
-//      * ---------------------------------------------------------------------- InProgress ----------------------------------------------------------------
-//      * a task can be InProgress if its parent (if any) is active and all its predecessors are in
-//      * Complete
-//      */
-//   } else if ("IN_PROGRESS" == newStatus) {
-//     if (!parent)
-//       return true;
-//
-//     if (!"IN_PROGRESS" == parent.status)
-//       return false;
-//
-//     var sups = this.getSuperiorTasks();
-//     for (var i = 0; i < sups.length; i++) {
-//       if ("COMPLETE" != sups[i].status) { // It is an error if a predecessor is not closed
-//         return false;
-//       }
-//     }
-//     return true;
-//
-//
-//
-//
-//
-//     //---------------------------------------------------------------------- Deferred ----------------------------------------------------------------
-//     // A task can be Deferred (manually) if it is root
-//     // if the parent is InProgress or Deferred and if not
-//   } else if ("DEFERRED" == newStatus) {
-//     if (!parent)
-//       return true;
-//
-//     if ("BACKLOG" == parent.status || "RETIRED" == parent.status)
-//       return false;
-//
-//     return true;
-//
-//     //---------------------------------------------------------------------- Retired ----------------------------------------------------------------
-//   } else if ("RETIRED" == newStatus) {
-//     // It can always be Retired
-//     return true;
-//
-//     //---------------------------------------------------------------------- Backlog ----------------------------------------------------------------
-//   } else if ("BACKLOG" == newStatus) {
-//     // It can always be Backlog
-//     return true;
-//
-//     //---------------------------------------------------------------------- Cancelled ----------------------------------------------------------------
-//   } else if ("CANCELLED" == newStatus) {
-//     // It can always be Cancelled, similar to Retired
-//     return true;
-//   }
-//
-//   return false;
-// };
-
 
 //<%------------------------------------------------------------------------  LINKS OBJECT ---------------------------------------------------------------%>
 /**

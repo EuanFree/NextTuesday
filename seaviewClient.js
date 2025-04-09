@@ -58,8 +58,8 @@ const getPortfolioListFromServer = async() => {
         }
         const json = await response.json();
         const rows = json.rows;
-        console.log("Rows: ");
-        console.log(rows);
+        // console.log("Rows: ");
+        // console.log(rows);
         return rows;
     } catch (error) {
         console.error('Error fetching portfolio list:', error);
@@ -75,18 +75,35 @@ const getPortfolioListFromServer = async() => {
  */
 const getPortfolioContentsFromServer = async(portfolioId) => {
     try {
-        console.log(`Fetching contents for portfolio ID: ${portfolioId}...`);
+        // console.log(`Fetching contents for portfolio ID: ${portfolioId}...`);
         const response = await fetch(`${server}/portfolioContents?portfolioId=${portfolioId}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const rows = await response.json();
-        console.log("Portfolio Contents: ", rows);
+        // console.log("Portfolio Contents: ", rows);
         return rows;
     } catch (error) {
         console.error(`Error fetching portfolio contents for ID ${portfolioId}:`, error);
     }
 }
+
+const getProgrammeContentsFromServer = async(programmeId) => {
+    try {
+        // console.log(`Fetching contents for programme ID: ${programmeId}...`);
+        const response = await fetch(`${server}/programmeContents?programmeId=${programmeId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        // console.log("Programme Contents: ", json);
+        return json;
+    } catch (error) {
+        console.error(`Error fetching programme contents for ID ${programmeId}:`, error);
+    }
+}
+
+
 
 /**
  * Fetches tasks related to a specific project from the server.
@@ -351,7 +368,7 @@ const getEnumerationTable = async (typeName) => {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const json = await response.json();
-        console.log("Enumeration table: ", json);
+        // console.log("Enumeration table: ", json);
         // const rows = json.rows;
         // return rows;
         return json;
@@ -364,14 +381,14 @@ const getEnumerationTable = async (typeName) => {
 
 const getProjectJSON = async (projectId, userId) => {
     try{
-        console.log("Fetching project JSON for project ID: ", projectId);
-        console.log("Fetching project JSON for user ID: ", userId);
+        // console.log("Fetching project JSON for project ID: ", projectId);
+        // console.log("Fetching project JSON for user ID: ", userId);
         const response = await fetch(`${server}/getProjectJSON?projectId=${projectId}&userId=${userId}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const json = await response.json();
-        console.log("Project JSON: ", json);
+        // console.log("Project JSON: ", json);
 
         return json;
     }
@@ -388,7 +405,7 @@ const getResourcesList = async () => {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const json = await response.json();
-        console.log("Resources list: ", json);
+        // console.log("Resources list: ", json);
         return json;
     }catch(error)
     {
@@ -431,7 +448,7 @@ const getMyUserID = async () => {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const json = await response.json();
-        console.log("My ID: ", json);
+        // console.log("My ID: ", json);
         return json;
     }
     catch(error){
@@ -462,7 +479,7 @@ const getProjectUserSetup = async (projectId, userID) =>
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const json = await response.json();
-        console.log("Project user setup: ", json);
+        // console.log("Project user setup: ", json);
 
         const zoomLevelMapping = {
             "DAYS3": "3d",
@@ -476,7 +493,7 @@ const getProjectUserSetup = async (projectId, userID) =>
         };
 
         json.zoom_level = zoomLevelMapping[json.zoom_level] || json.zoom_level; // Convert zoom_level using the mapping.
-        console.log("Project user setup: ", json);
+        // console.log("Project user setup: ", json);
         return json;
     }catch(error){
         console.error(`Error fetching project user setup:`, error);

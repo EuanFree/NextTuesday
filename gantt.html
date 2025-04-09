@@ -68,36 +68,96 @@
     </div>
 </div>
 
+
 <!-- Main layout -->
 <div class="layout-container">
     <!-- Collapsible side menu -->
     <div id="sideMenu">
         <button id="toggleSidebar">Toggle</button>
-        <ul>
-            <li>Menu Item 1</li>
-            <li>Menu Item 2</li>
-            <li>Menu Item 3</li>
-        </ul>
+        <div id="menuContainer"></div>
     </div>
 
     <!-- Central workspace -->
     <div id="workSpaceContainer">
-        <div id="workSpace" style="padding:0px; overflow-y:auto; overflow-x:hidden;border:1px solid #e5e5e5;position:relative;margin:0 5px"></div>
+        <div id="workSpace"
+             style="padding:0px; overflow-y:auto; overflow-x:hidden;border:1px solid #e5e5e5;position:relative;margin:0 5px"></div>
     </div>
 </div>
-
-
 <script>
 
 
 
-    // Get active portfolio list and update sidebar contents
-    $(document).ready(function () {
+//    // Get active portfolio list and update sidebar contents
+//    $(document).ready(function () {
+//
+//        let userID = -1;
+//        getMyUserID().then(result => {
+//            userID = result;
+//            console.log("End User ID: ", userID);
+//        }).catch(error => {
+//            console.error("Error initializing userID:", error);
+//            userID = -1;
+//        })
+//        console.log("User ID: ", userID);
+//
+//        let maxTaskChangeCount = 0;
+//        getMaxTaskChangeId().then(result => {
+//            maxTaskChangeCount = result;
+//        }).catch(error => {
+//            console.error("Error initializing maxTaskChangeCount:", error);
+//            maxTaskChangeCount = -1; // Fallback value in case of error
+//        });
+//        console.log("Max Task Change Count: ", maxTaskChangeCount);
+//        // Prepped for later
+//        // // Heartbeat mechanism that triggers periodic checks with the server
+//        // const heartbeatInterval = 30000; // Interval in milliseconds (e.g., 30 seconds)
+//        //
+//        // const heartbeat = async () => {
+//        //     try {
+//        //         console.log("Heartbeat: Checking server status...");
+//        //         const response = await fetch(`http://localhost:3000/heartbeat`);
+//        //         if (!response.ok) {
+//        //             throw new Error(`Heartbeat failed! HTTP error: ${response.status}`);
+//        //         }
+//        //         const serverData = await response.json();
+//        //         console.log("Heartbeat response:", serverData);
+//        //         // Use serverData to trigger specific actions if any updates or changes are detected
+//        //     } catch (error) {
+//        //         console.error("Heartbeat error:", error);
+//        //     }
+//        // };
+//        //
+//        // // Start the heartbeat
+//        // setInterval(heartbeat, heartbeatInterval);
+//
+//        // projectTasks();
+//
+//        /* Test Section -----------------------------------------------------------------------*/
+//        // console.log('Test Section')
+//        // getUsername();
+//        // // updateSidebarWithPortfolios();
+//        // addBlankTaskToProject(1);
+//        // console.log("Start task update");
+//        // updateTask(1,{"id": 1,"title": "New Task","progress": 0.5});
+//        // addTaskChange(1,{"id": 1,"title": "New Task","progress": 0.5});
+//        // console.log("Task Updated");
+//
+//        // async function portfolioSelected(portfolioId) {
+//        //     console.log("Portfolio Selected: ", portfolioId);
+//        //     const portfolioContents = await getPortfolioContentsFromServer(portfolioId);
+//        //     console.log("Portfolio Contents: ", portfolioContents);
+//        //     return portfolioContents;
+//        // }
+//    });
 
+
+</script>
+<script>
+    $(document).ready(() => {
         let userID = -1;
         getMyUserID().then(result => {
             userID = result;
-            console.log("End User ID: ", userID);
+            // console.log("End User ID: ", userID);
         }).catch(error => {
             console.error("Error initializing userID:", error);
             userID = -1;
@@ -112,87 +172,303 @@
             maxTaskChangeCount = -1; // Fallback value in case of error
         });
         console.log("Max Task Change Count: ", maxTaskChangeCount);
-        // Prepped for later
-        // // Heartbeat mechanism that triggers periodic checks with the server
-        // const heartbeatInterval = 30000; // Interval in milliseconds (e.g., 30 seconds)
-        //
-        // const heartbeat = async () => {
-        //     try {
-        //         console.log("Heartbeat: Checking server status...");
-        //         const response = await fetch(`http://localhost:3000/heartbeat`);
-        //         if (!response.ok) {
-        //             throw new Error(`Heartbeat failed! HTTP error: ${response.status}`);
-        //         }
-        //         const serverData = await response.json();
-        //         console.log("Heartbeat response:", serverData);
-        //         // Use serverData to trigger specific actions if any updates or changes are detected
-        //     } catch (error) {
-        //         console.error("Heartbeat error:", error);
-        //     }
+
+
+
+        const sideMenu = $("#menuContainer");
+
+        // // Function to update Gantt view for a project
+        // const updateGanttForProject = (projectId, userId) => {
+        //     console.log(`Loading project ${projectId} into Gantt`);
+        //     ganttMaster.loadProjectFromDatabase(projectId,userId);
+        //     ganttMaster.loadTasksFromPostgreSQL(projectId);// Example function from ganttMaster
         // };
-        //
-        // // Start the heartbeat
-        // setInterval(heartbeat, heartbeatInterval);
-        
-        
-        //Test the project
 
+        // Function to create hierarchical menu
+        const createHierarchicalMenu = async () => {
+            try
+            {
+                const portfolios = await getPortfolioListFromServer(); // Fetch portfolios
+                const portfoliosContents = [];
+                for(let i = 0; i < portfolios.length; i++)
+                {
+                    const portfolioContents = {'programmes':[],'projects':[],'id':portfolios[i].id, "title": portfolios[i].title};
+                    const pContents = await getPortfolioContentsFromServer(portfolios[i].id);
+                    for(let j = 0; j < pContents.length; j++)
+                    {
+                        let progCt = 0;
+                        if(pContents[j].programme_id != null)
+                        {
+                            portfolioContents.programmes.push({"id": pContents[j].programme_id, "title":pContents[j].title,"projects": []});
+                            progCt = portfolioContents.programmes.length - 1;
+                            const progProjs =  await getProgrammeContentsFromServer(pContents[j].programme_id);
+                            for(let k = 0; k < progProjs.length; k++)
+                            {
+                                portfolioContents.programmes[progCt].projects.push({"id":progProjs[k].id,"title":progProjs[k].title});
+                            }
+                            // progCt++;
 
-
-        const updateSidebarWithPortfolios = async () => {
-            try {
-                const portfolioList = await getPortfolioListFromServer();
-                const sideMenu = $("#sideMenu ul");
-
-                // Clear existing sidebar content
-                sideMenu.empty();
-
-                // Add a button for each portfolio in the list
-                portfolioList.forEach(portfolio => {
-                    const button = $("<li>")
+                        }
+                        if(pContents[j].project_id != null)
+                        {
+                            portfolioContents.projects.push({"id":pContents[j].project_id,"title":pContents[j].title});
+                        }
+                    }
+                    portfoliosContents.push(portfolioContents);
+                    portfoliosContents[i].id = portfolios[i].id;
+                }
+                sideMenu.empty(); // Clear existing menu
+                let portfolioCt = 0;
+                portfoliosContents.forEach((portfolio) => {
+                    const portfolioDiv = $("<div>")
+                        .addClass("menuItem portfolio")
                         .text(portfolio.title)
-                        // .on("click", function () {
-                        //     alert(`Selected: ${portfolio.title}`);
-                        .on("click", () => portfolioSelected(portfolio.id));
-                    sideMenu.append(button);
+                        .data('id', portfolio.id)
+                        .data('type', 'portfolio');
+
+                    portfolioDiv.on("click", function () {
+                        // Show portfolio details
+                        showSummaryWindow("Portfolio", portfolio.id);
+                    });
+
+                    portfolioDiv.on("dblclick", function ()
+                    {
+                        // Expand/collapse programmes under this portfolio
+                        const childProgrammes = $(this).nextUntil(".portfolio", ".programme");
+                        const childProjects = $(this).nextUntil(".portfolio", ".programme").addBack().nextUntil(".portfolio", ".portfolioProject");
+                        const visibleChildren = childProgrammes.filter(":visible");
+                        if (visibleChildren.length > 0)
+                        {
+                            // childProgrammes.slideUp();
+                            // childProjects.slideUp();
+                            $(this).nextUntil(".portfolio").slideUp();
+                        }
+                        else
+                        {
+                            childProgrammes.slideDown();
+                            childProjects.slideDown();
+                        }
+
+                        window.getSelection()?.removeAllRanges();
+                    });
+
+                    sideMenu.append(portfolioDiv);
+
+                    // Generate programmes for this portfolio
+                    if (portfolio.programmes) {
+                        const projProgs = async () => {
+                            for(let i = 0; i < portfolio.programmes.length; i++)
+                            {
+                                const progProjs =  await getProgrammeContentsFromServer(portfolio.programmes[i].id);
+                                for(let j = 0; j < progProjs.length; j++)
+                                {
+                                    portfoliosContents[portfolioCt].programmes[i].projects.push({"id":progProjs[j].id,"title":progProjs[j].title});
+                                }
+                            }
+                            return true;
+                        };
+                        portfoliosContents[portfolioCt].programmes.forEach(async (programme) => {
+                            const programmeDiv = $("<div>")
+                                .addClass("menuItem programme")
+                                .text(programme.title)
+                                .data('id', programme.id)
+                                .data('type', 'programme')
+                                .css("display", "none"); // Initially hidden
+
+                            programmeDiv.on("click", function () {
+                                // Show programme details
+                                showSummaryWindow("Programme", programme.id);
+                            });
+
+                            programmeDiv.on("dblclick", function () {
+                                // Expand/collapse projects under this programme
+                                const childProjects = $(this).nextUntil(".programme, .portfolio", ".programmeProject");
+                                const visibleChildren = childProjects.filter(":visible");
+                                if (visibleChildren.length > 0) {
+                                    childProjects.slideUp();
+                                } else {
+                                    console.log("Child Projects: ", childProjects);
+                                    childProjects.slideDown();
+                                }
+                                window.getSelection()?.removeAllRanges();
+                            });
+
+                            sideMenu.append(programmeDiv);
+
+                            // Generate projects for this programme
+                            if (programme.projects) {
+                                programme.projects.forEach((project) => {
+                                    const projectDiv = $("<div>")
+                                        .addClass("menuItem programmeProject")
+                                        .text(project.title)
+                                        .data('id', project.id)
+                                        .data('type', 'programmeProject')
+                                        .css("display", "none"); // Initially hidden
+
+                                    projectDiv.on("click", function () {
+                                        // Show project details
+                                        showSummaryWindow("Project", project.id);
+                                    });
+
+                                    projectDiv.on("dblclick", function () {
+                                        // Load project into Gantt
+                                        console.log("Load project into Gantt");
+                                        console.log("GE:",ge);
+                                        const projectId = project.id;
+                                        ge.loadProjectFromDatabase(projectId, userID).then(() => {
+                                            console.log(`Project ${projectId} loaded from database successfully.`);
+
+                                            ge.loadTasksFromPostgreSQL(userID, projectId).then(() => {
+                                                console.log(`Tasks for project ${projectId} loaded successfully.`);
+                                            }).catch(error => {
+                                                console.error(`Error loading tasks for project ${projectId}:`, error);
+                                            });
+                                            // Reset the background color of all other programmeProjects and portfolioProjects to default
+                                            $(".menuItem.programmeProject, .menuItem.portfolioProject").css({"background-color": "", "box-shadow": "none"});
+
+
+                                            // Add shadow effect to improved selection visibility
+                                            $(this).css({
+                                                "background-color": "#ffffff", // Change background to white
+                                                "box-shadow": "0px 4px 8px rgba(0, 0, 0, 0.2)" // Add subtle shadow
+                                            });
+                                        }).catch(error => {
+                                            console.error(`Error loading project ${projectId} from database:`, error);
+                                        });
+                                    });
+                                    sideMenu.append(projectDiv);
+                                });
+                            }
+                        });
+                    }
+
+                    // Generate projects directly under this portfolio
+                    if (portfolio.projects) {
+                        portfolio.projects.forEach((project) => {
+                            const projectDiv = $("<div>")
+                                .addClass("menuItem portfolioProject")
+                                .text(project.title)
+                                .data('id', project.id)
+                                .data('type', 'portfolioProject')
+                                .css("display", "none"); // Initially hidden
+
+                            projectDiv.on("click", function () {
+                                // Show project details
+                                showSummaryWindow("Project", project.id);
+                            });
+
+                            projectDiv.on("dblclick", function () {
+                                // Load project into Gantt
+                                // TODO: Fix this connection to the gannt window
+                                // updateGanttForProject(project.id);
+                                console.log("Load project into Gantt");
+                                console.log("GE:",ge);
+                                const projectId = project.id;
+                                ge.loadProjectFromDatabase(projectId, userID).then(() => {
+                                    console.log(`Project ${projectId} loaded from database successfully.`);
+
+                                    ge.loadTasksFromPostgreSQL(userID, projectId).then(() => {
+                                        console.log(`Tasks for project ${projectId} loaded successfully.`);
+                                    }).catch(error => {
+                                        console.error(`Error loading tasks for project ${projectId}:`, error);
+                                    });
+                                    
+
+                                    // Reset the background color of all other programmeProjects and portfolioProjects to default
+                                    $(".menuItem.programmeProject, .menuItem.portfolioProject").css({"background-color": "", "box-shadow": "none"});
+
+
+                                    // Add shadow effect to improved selection visibility
+                                    $(this).css({
+                                        "background-color": "#ffffff", // Change background to white
+                                        "box-shadow": "0px 4px 8px rgba(0, 0, 0, 0.2)" // Add subtle shadow
+                                    });
+                                    
+                                }).catch(error => {
+                                    console.error(`Error loading project ${projectId} from database:`, error);
+                                });
+                            });
+
+                            sideMenu.append(projectDiv);
+                        });
+                    }
+                    portfolioCt++;
                 });
             } catch (error) {
-                console.error("Error fetching portfolio list:", error);
-                // You can display a user-friendly error message here
+                console.error("Error creating hierarchical menu:", error);
             }
+            // console.log(sideMenu);
         };
 
+        // Summary window function
+        const showSummaryWindow = (type, id) => {
+            console.log(`Showing summary for ${type} with ID: ${id}`);
+            // TODO: Add logic to open and populate the summary window based on the type and ID
+        };
 
-
-
-
-
-        
-
-
-
-
-
-        // projectTasks();
-        console.log('Test Section')
-        getUsername();
-        updateSidebarWithPortfolios();
-        addBlankTaskToProject(1);
-        console.log("Start task update");
-        updateTask(1,{"id": 1,"title": "New Task","progress": 0.5});
-        addTaskChange(1,{"id": 1,"title": "New Task","progress": 0.5});
-        console.log("Task Updated");
-
-        async function portfolioSelected(portfolioId) {
-            console.log("Portfolio Selected: ", portfolioId);
-            const portfolioContents = await getPortfolioContentsFromServer(portfolioId);
-            console.log("Portfolio Contents: ", portfolioContents);
-            return portfolioContents;
-        }
+        // Initialize hierarchical menu
+        createHierarchicalMenu();
     });
-    
-
 </script>
+
+<style>
+    #menuContainer {
+/*        margin-top: 10px;
+        padding-left: 10px;*/
+        padding: 10px;
+        box-sizing: border-box;
+    }
+
+    .menuItem {
+        margin: 5px 0;
+        padding: 5px;
+        cursor: pointer;
+        border: 1px solid #e5e5e5;
+        border-radius: 5px;
+    }
+
+    .menuItem:hover {
+        background-color: #f0f0f0;
+    }
+
+    .menuItem.portfolio {
+        font-weight: bold;
+    }
+
+    .menuItem.programme {
+        padding-left: 20px;
+    }
+
+    .menuItem.portfolioProject {
+        padding-left: 30px;
+    }
+
+
+    .menuItem.programmeProject {
+        padding-left: 40px;
+    }
+</style>
+
+<!-- Main layout -->
+<!--<div class="layout-container">-->
+<!--    &lt;!&ndash; Collapsible side menu &ndash;&gt;-->
+<!--    <div id="sideMenu">-->
+<!--        <button id="toggleSidebar">Toggle</button>-->
+<!--        <ul>-->
+<!--            <li>Menu Item 1</li>-->
+<!--            <li>Menu Item 2</li>-->
+<!--            <li>Menu Item 3</li>-->
+<!--        </ul>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Central workspace &ndash;&gt;-->
+<!--    <div id="workSpaceContainer">-->
+<!--        <div id="workSpace" style="padding:0px; overflow-y:auto; overflow-x:hidden;border:1px solid #e5e5e5;position:relative;margin:0 5px"></div>-->
+<!--    </div>-->
+<!--</div>-->
+
+
+
 
 <!-- Footer -->
 <div id="statusBar">
@@ -331,7 +607,7 @@ $(/**
  * write access is managed, and the history management is initialized.
  */
 function() {
-        console.log("jQuery ready function fired");
+        // console.log("jQuery ready function fired");
 
         var canWrite = true; //this is the default for test purposes
 
@@ -344,36 +620,33 @@ function() {
             console.error("Workspace element (#workSpace) not found in DOM.");
             return;
         }
-        console.log("Workspace element found:", workSpaceElement);
+        // console.log("Workspace element found:", workSpaceElement);
 
         // Initialize the Gantt editor with workspace
         ge.init(workSpaceElement);
 
 
         getMyUserID().then(async uID => {
-            console.log("GANTT userID: " + uID);
             const project = await ge.loadProjectFromDatabase(1, uID);
             if (!project) {
                 console.error("Project not found or invalid.");
                 throw new Error("Invalid project");
             }
-            console.log("Roles");
-            console.log(ge.roles);
-            console.log("GANTT Debug 0");
             return project;
         }).then(async project => {
-            console.log("G Debug: 1");
-            const tasks = await ge.loadTasksFromPostgreSQL(1);
-            console.log("G Debug: 2");
+            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 1");
+            // const tasks = await ge.loadTasksFromPostgreSQL(1);
+            console.log("tasks: ", ge.tasks);
+            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 1.1");
             return {project, tasks};
         }).then(({project, tasks}) => {
-            console.log("Successfully loaded tasks:", tasks);
+            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 2");
 
             ge.set100OnClose = true;
             ge.shrinkParent = true;
 
             loadI18n(); // Overwrite with localized resources
-
+            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 3");
             // Force compute the best-fitting zoom level
             delete ge.gantt.zoom;
 
@@ -381,10 +654,7 @@ function() {
                 $(".ganttButtonBar button.requireWrite").attr("disabled", "true");
             }
 
-            // Load the actual project and its tasks
-
-            // ge.loadProject(project); // Use the actual project loaded from the database
-
+            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 4");
             ge.checkpoint(); // Empty the undo stack (checkpoint)
 
             if (ge.tasks && ge.tasks.length > 0) {
@@ -392,44 +662,11 @@ function() {
             } else {
                 console.error("No tasks available to initialize history management.");
             }
+            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 5");
         }).catch(error => {
             console.error("Error loading tasks:", error);
         });
     }
-
-
-
-      // getProjectTasksFromServer(1).then(tasks => {
-      //     console.log("GANTT CHECK tasks: " + tasks);
-      //     ge.set100OnClose = true;
-      //
-      //     ge.shrinkParent = true;
-      //     var workSpaceElement = $("#workSpace");
-      //     if (workSpaceElement.length === 0) {
-      //         console.error("Workspace element (#workSpace) not found in DOM.");
-      //         return;
-      //     } else {
-      //         console.log("workSpaceElement: " + workSpaceElement + " founc");
-      //     }
-      //
-      //     ge.init(workSpaceElement);
-      //     loadI18n(); //overwrite with localized ones
-      //
-      //     //in order to force compute the best-fitting zoom level
-      //     delete ge.gantt.zoom;
-      //
-      //     var project = getDemoProject();
-      //
-      //     if (!project.canWrite)
-      //         $(".ganttButtonBar button.requireWrite").attr("disabled", "true");
-      //
-      //     ge.loadProject(project);
-      //     ge.checkpoint(); //empty the undo stack
-      //
-      //     initializeHistoryManagement(ge.tasks[0].id);
-      // })
-  // }).catch(error => console.error('Error fetching user ID:', error));
-
 );
 
 

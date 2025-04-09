@@ -192,7 +192,7 @@ async function getProjectUserSetup(projectID, userID)
 async function getProjectJSON(projectID, userID)
 {
     // let projectTaskArray = populateTasksAdditionalInformationForGanttChart(projectID);
-    console.log("Starting getProjectJSON:")
+    console.log("Starting getProjectJSON: User ID",userID, "Project ID", projectID);
     // console.log("projectID: " + projectID);
     // console.log("userID: " + userID);
     let projectDetails = await getProjectData(projectID);
@@ -219,31 +219,6 @@ async function getProjectJSON(projectID, userID)
         // },
         // tasks: []
     }
-
-    // for (let i = 0; i < projectTaskArray.length; i++) {
-    //     var task = projectTaskArray[i];
-    //     var t = factory.build(
-    //         task.id,
-    //         task.name,
-    //         task.code,
-    //         task.level,
-    //         task.start,
-    //         task.duration,
-    //         task.collapsed
-    //     );
-    //
-    //     for (var key in task) {
-    //         if (key !== "end" && key !== "start")
-    //             t[key] = task[key]; // copy additional properties
-    //     }
-    //
-    //     task = t;
-    //     task.master = this;
-    //
-    //     // Push the final task object into projectJSON.tasks
-    //     projectJSON.tasks.push(task);
-    // }
-    // console.log("projectJSON: " + JSON.stringify(projectJSON));
     return projectJSON;
 }
 
@@ -318,7 +293,7 @@ async function getProjectListForPortfolio(portfolioID, includeIsActive = true) {
  * @returns {Promise<Array>} A promise that resolves to the list of projects for the program.
  */
 async function getProjectListForProgramme(programmeID, includeIsActive = true) {
-    let projectListSQL = "SELECT projects FROM seaview.programmes WHERE programme_id = " + programmeID;
+    let projectListSQL = "SELECT id FROM seaview.projects WHERE programme_id = " + programmeID;
     if (includeIsActive) {
         projectListSQL += " AND is_active = true";
     }
@@ -882,8 +857,8 @@ async function addBlankResource() {
 
 async function getPortfolioContents(portfolioID)
 {
-    const query = `SELECT id AS programme_id, NULL AS project_id FROM seaview.programmes WHERE portfolio_id = ${portfolioID}
-                            UNION SELECT NULL AS programme_id, id AS project_id FROM seaview.projects WHERE portfolio_id = ${portfolioID}`;
+    const query = `SELECT id AS programme_id, NULL AS project_id, title FROM seaview.programmes WHERE portfolio_id = ${portfolioID}
+                            UNION SELECT NULL AS programme_id, id AS project_id, title FROM seaview.projects WHERE portfolio_id = ${portfolioID}`;
     try
     {
         const result = await executeSQL(query);
@@ -905,19 +880,19 @@ async function getPortfolioContents(portfolioID)
     }
 }
 
-async function getProgrammeContents(programID)
+async function getProgrammeContents(programmeID)
 {
-    const query = `SELECT projects FROM seaview.programmes WHERE programme_id = ${programID}`;
+    const query = `SELECT id, title FROM seaview.projects WHERE programme_id = ${programmeID}`;
     try
     {
         const result = await executeSQL(query);
         if (result.rows.length > 0)
         {
-            return result.rows[0];
+            return result.rows;
         }
         else
         {
-            throw new Error(`Program with ID ${programID} not found.`);
+            return [];
         }
     } catch (error)
     {
@@ -1090,18 +1065,23 @@ async function getCombinedProjectTaskDetails(projectID, userID, activeOnly=true)
                            GROUP BY task_id
                                ),
                                final_combination AS (
-                           SELECT t.*, th.hierarchy_level, guptvo.collapsed
+                           SELECT t.*, th.hierarchy_level, guptvo.collapsed, ptl.line_number
                            FROM tasks_for_project t
                                LEFT JOIN task_hierarchy th
                            ON t.id = th.task_id
                                LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
                                ON t.id = guptvo.task_id AND guptvo.user_id = $2
+                               LEFT JOIN (
+                                   SELECT task_id, line_number 
+                                   FROM seaview.project_task_line 
+                                   WHERE project_id = $1
+                               ) ptl ON t.id = ptl.task_id
                                )
     SELECT *
     FROM final_combination
     WHERE title IS NOT NULL
       AND title != 'Blank'
-    ORDER BY start_date ASC;`;
+    ORDER BY line_number ASC;`;
     try {
         // console.log('getCombinedProjectTaskDetails query: \n\r', combinedQuery);
         const combinedResult = await executeSQL(combinedQuery, [projectID, userID]);
@@ -1147,12 +1127,12 @@ async function getTaskResources(taskID) {
     const query = `SELECT resource_id FROM seaview.task_resource_association WHERE task_id = ${taskID}`;
     try {
         const result = await executeSQL(query);
-        console.log('getTaskResources result: ', result);
+        // console.log('getTaskResources result: ', result);
         if (result.rows.length === 0) {
             console.log('Error getting task resources for task ID' + taskID + ' : ' + result.rows.length);
             return [];
         }
-        console.log('getTaskResources result: ', result.rows);
+        // console.log('getTaskResources result: ', result.rows);
         return result.rows;
     } catch (error) {
         console.error("Error getting task resources:", error);

@@ -569,10 +569,11 @@ select.taskStatus{
 .taskBoxSVG .taskLayout{
   stroke-width:0;
   stroke:#999;
+  box-shadow: 5px 5px 5px rgba(0,0,0,0.3);
 }
 
 .taskLinkPathSVG{
-  stroke: rgba(47, 151, 198, 1);
+  stroke: rgb(133, 140, 142);
   /*stroke:#9999ff;*/
   stroke-width:2.5px;
   fill:none;
@@ -680,13 +681,15 @@ select.taskStatus{
   display:none;
   stroke:transparent;
   stroke-width:5;
-  fill: rgba(47, 151, 198, 0.7);
+  /*fill: rgba(47, 151, 198, 0.7);*/
+  fill: rgba(60, 63, 64, 0.7);
   cursor: pointer;
 }
 
 .linkLineSVG{
   stroke-width:5px;
-  stroke: rgba(47, 151, 198, 0.7);
+  /*stroke: rgba(47, 151, 198, 0.7);*/
+  stroke: rgba(60, 63, 64, 0.7);
   stroke-linecap:"round";
   opacity: .5;
 }
