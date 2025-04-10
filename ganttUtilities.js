@@ -516,6 +516,25 @@ function computeStartDate(start) {
   return d;
 }
 
+
+/**
+ * Converts a millisecond value into a Date object and returns a text timestamp.
+ *
+ * @param {number} millis - The millisecond value to convert.
+ * @return {string} The text timestamp in YYYY-MM-DD HH:mm:ss format.
+ */
+function convertMillisToTimestamp(millis) {
+  const date = new Date(millis);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 /**
  * Computes the end time in milliseconds from the given end date.
  *

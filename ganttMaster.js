@@ -32,7 +32,8 @@
  *
  * @return {GanttMaster} Returns an instance of the GanttMaster class configured with default properties.
  */
-function GanttMaster() {
+function GanttMaster(userID) {
+  this.userId = userID;
   this.tasks = [];
   this.deletedTaskIds = [];
   this.links = [];
@@ -709,7 +710,31 @@ function handleTaskChanges(changes) {
     console.log("Task Changes Tracking on?:",taskChangeTracking);
     console.log("*******************Batched Task Changes*****************************:");
     changes.forEach(change => console.log(change));
+    console.log("********************************************************************:");
+    // changes.forEach(async change => {
+    //   await updateTask(change.task.id, change.)
+    // });
+
+    changes.forEach(async change => {
+      try {
+        // Update the task with the given change
+
+        // Find the task with the matching change.id in this.tasks
+        // const targetTask = this.tasks.find(task => task.id === change.id);
+        const targetTask = change.task;
+        if (!targetTask) {
+          throw new Error(`Task with ID ${change.id} not found in this.tasks.`);
+        }
+        await updateTask(targetTask.master.userId, targetTask);
+
+        // Add the task change
+        // await addTaskChange(this.userId, change.id, change);
+      } catch (error) {
+        console.error(`Error processing change for task ID: ${change.task.id}`, error);
+      }
+    });
   }
+
 }
 
 /**
@@ -795,24 +820,10 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
       for (let j = 0; j < dependencies.length; j++) {
         const predecessorId = dependencies[j].predecessor_id;
         const successorId = dependencies[j].successor_id;
-        const lag = dependencies[j].lag || 0;
-
-        // // Find the from and to tasks in the this.tasks array
-        // let fromTask = this.tasks.find(task => (task.id === predecessorId || (task.id && task.id.id === predecessorId)));
-        // let toTask = this.tasks.find(task => (task.id === successorId || (task.id && task.id.id === successorId)));
-        // fromTask = { ...fromTask };
-        // toTask = { ...toTask };
-        //
-        // // Ensure fromTask and toTask have all the required functions from Task prototype
-        // if (fromTask) {
-        //   Object.setPrototypeOf(fromTask, Task.prototype);
-        // }
-        // if (toTask) {
-        //   Object.setPrototypeOf(toTask, Task.prototype);
-        // }
 
         let fromTask = this.tasks.find(task => (task.id === predecessorId));
         let toTask = this.tasks.find(task => (task.id === successorId));
+        let lag = dependencies[j].lag;
 
         // console.log('fromTask:', fromTask);
         // console.log('toTask:', toTask);

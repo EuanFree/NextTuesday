@@ -218,29 +218,27 @@ const getTaskById = async (taskId) => {
         }
         const task = await response.json();
         console.log("Fetched task:", task);
+
         return task;
-    } catch (error) {
+    }
+    catch(error)
+    {
         console.error(`Error fetching task with ID ${taskId}:`, error);
     }
 };
 
-
 /**
- * An asynchronous function that logs and sends task changes for audit purposes.
- * This function prepares the details of a task's changes, logs them, and sends
- * the data to a server endpoint for further recording.
+ * Logs details of a task change and sends the information to the server for audit purposes.
  *
- * @param {string} taskId - The unique identifier of the task being modified.
- * @param {Object} task - The updated task data containing changes made to the task.
- * @returns {Promise<Object|undefined>} A promise that resolves with the response
- * from the server if the task change is recorded successfully, or undefined in case of an error.
- *
- * @throws {Error} Will throw an error if:
- * - User ID cannot be retrieved for audit logging.
- * - Task data for the specified task ID cannot be fetched for comparison.
- * - The server request fails or returns a non-OK status.
+ * @function addTaskChange
+ * @async
+ * @param {string} userId - The ID of the user making the change to the task.
+ * @param {string} taskId - The ID of the task being changed.
+ * @param {Object} task - An object containing updated task details.
+ * @returns {Promise<Object|undefined>} Resolves with the server's response after successfully recording the task change, or undefined if an error occurs.
+ * @throws {Error} Throws an error if the server returns a non-OK status or if there are issues fetching or processing task change details.
  */
-const addTaskChange = async (taskId, task) => {
+const addTaskChange = async (userId, task) => {
     try {
 
 
@@ -248,37 +246,138 @@ const addTaskChange = async (taskId, task) => {
         const taskChangeDetails = async () => {
             try {
                 console.log("Preparing task change details...");
-                const userIDData = await getUserID();
-                if (!userIDData) {
-                    throw new Error("Failed to fetch the user ID for audit logging.");
+                // const userIDData = await getUserID();
+                // if (!userIDData) {
+                //     throw new Error("Failed to fetch the user ID for audit logging.");
+                // }
+                
+                const taskMaster = task.master;
+                const changedBy = userId; // Assuming `userId` is the field in the response
+                // const currentTaskData = await getTaskById(taskId);
+                const currentTaskData =
+                    await fetch(`${server}/getCombinedTaskDetails?taskId=${task.id}&&userId=${userId}&activeOnly=true`);
+                if (!currentTaskData.ok) {
+                    throw new Error(`Failed to fetch task with ID ${task.id} for audit logging.`);
                 }
+                const cTDJSON = await currentTaskData.json();
+                console.log("Current task data:", cTDJSON);
+                var factory = new TaskFactory();
+                const t = factory.buildSimple(cTDJSON.rows[0].id,
+                    cTDJSON.rows[0].title,
+                    'misc',
+                    cTDJSON.rows[0].hierarchy_level,
+                    cTDJSON.rows[0].start_date,
+                    cTDJSON.rows[0].duration,
+                    cTDJSON.rows[0].collapsed)
 
-                const changedBy = userIDData.userId; // Assuming `userId` is the field in the response
-                const currentTaskData = await getTaskById(taskId);
-                if (!currentTaskData) {
-                    throw new Error(`Failed to fetch task with ID ${taskId} for audit logging.`);
-                }
 
-                const oldValues = Object.keys(task).reduce((result, key) => {
-                    if (currentTaskData.hasOwnProperty(key)) {
-                        result[key] = currentTaskData[key];
+                const dependencies = await getTaskDependencies(task.id);
+                const taskResources = await getTaskResources(task.id);
+                if(dependencies[0].successor_id !== -1) {
+                    let deps = '';
+                    for (let j = 0; j < dependencies.length; j++) {
+                        deps += dependencies[j].predecessor_id +
+                            (j === dependencies.length - 1 ? '' : ',');
                     }
-                    return result;
-                }, {});
-                const newValues = task;
+                    t.depends = deps;
+                }
+                else
+                {
+                    t.depends = '';
+                }
+
+                t.assigs = [];
+                if(taskResources.length > 0 && taskMaster.roles.length > 0)
+                {
+                    for(let j = 0; j < taskResources.length; j++)
+                    {
+                        const resourceID = taskResources[j].resource_id;
+                        
+
+                        // Look up the resource type from this.resources based on the taskResource id - 1
+                        const resourceType = taskMaster.resources[resourceID - 1].resourceType;
+
+                        if (resourceType)
+                        {
+                            // Search the this.roles array for a role matching the resource type
+                            const role = taskMaster.roles.find(role => role.name === resourceType);
+
+                            if (role)
+                            {
+                                const roleID = role.id;
+
+                                const id = 'resId_' + resourceID + '_roleId_' + role.id;
+                                const effort = t.duration * 3600000 * 24;
+                                const assig = {resourceId: resourceID, id: id, roleId: roleID, effort: effort};
+                                t.assigs.push(assig);
+                            } else
+                            {
+                                console.warn(`No role found for resource type: ${resourceType}`);
+                            }
+                        } else
+                        {
+                            console.warn(`No resource type found for resource ID: ${resourceID}`);
+                        }
+                    }
+                }
+
+
+                const oldValues = {};
+                const newValues = {};
+
+                Object.keys(t).forEach(key => {
+                    // Compare properties that exist in both old and new tasks
+                    if (task.hasOwnProperty(key)) {
+                        if(key==='assigs') {
+
+                                const oldAssigs = t.assigs || [];
+                                const newAssigs = task.assigs || [];
+
+                                if (JSON.stringify(oldAssigs) !== JSON.stringify(newAssigs)) {
+                                    oldValues[key] = oldAssigs;
+                                    newValues[key] = newAssigs;
+                                }
+                        }
+                        else {
+                            if (t[key] !== task[key]) {
+                                oldValues[key] = t[key];
+                                newValues[key] = task[key];
+                            }
+                        }
+                    }
+                });
+
+// Collect properties that only exist in the new task
+                Object.keys(task).forEach(key => {
+                    if (!t.hasOwnProperty(key) && key !== 'ganttElement' && key !== 'master' && key !== 'rowElement') {
+                        newValues[key] = task[key];
+                    }
+                });
+
+// Log the differences for debugging purposes
+//                 console.log("Differences found:");
+//                 console.log("Old values:", oldValues);
+//                 console.log("New values:", newValues);
+                
+                // const oldValues = Object.keys(task).reduce((result, key) => {
+                //     if (currentTaskData.hasOwnProperty(key)) {
+                //         result[key] = currentTaskData[key];
+                //     }
+                //     return result;
+                // }, {});
+                // const newValues = task;
                 console.log("Task change details:");
-                console.log("Task ID:", taskId);
+                console.log("Task ID:", task.id);
                 console.log("Changed by:", changedBy);
                 console.log("Old values:", oldValues);
                 console.log("New values:", newValues);
 
                 return {
-                    taskId,
-                    changedBy,
-                    oldValues,
-                    newValues,
-                    timestamp: new Date().toISOString() // Adding a timestamp for logging purposes
-                };
+                    taskId: task.id,
+                    changedBy: changedBy,
+                    oldValues: oldValues,
+                    newValues: newValues
+                    };
             } catch (error) {
                 console.error("Error logging task change:", error);
             }
@@ -303,7 +402,7 @@ const addTaskChange = async (taskId, task) => {
 
         const json = await response.json();
         console.log('Task change successfully recorded:', json);
-        return json;
+        return {changeSummary:tcd, serverResponse:json};
     } catch (error) {
         console.error('Error sending task change:', error);
     }
@@ -311,55 +410,157 @@ const addTaskChange = async (taskId, task) => {
 
 
 /**
- * Asynchronously updates a task by sending a POST request to the server.
+ * Updates the dependencies of a specified task by sending a POST request to the server.
  *
- * This function performs two main operations:
- * 1. Sends a POST request to update a task on the server.
- * 2. Logs the task changes for audit purposes by invoking `addTaskChange`.
- *
- * @param {string} taskId - The unique identifier of the task to be updated.
- * @param {Object} task - The task object containing the updated properties.
- * @returns {Promise<Object>} A promise that resolves to an object containing:
- * - `updateSuccess` (boolean): Indicates if the task was successfully updated.
- * - `changeLogSuccess` (boolean): Indicates if the task change was successfully logged.
- * @throws {Error} Throws an error if the HTTP response for the update is not successful or if an exception occurs during the update or logging process.
+ * @async
+ * @param {Object} task - The task object containing the task id and its dependencies.
+ * @param {string} task.id - The unique identifier of the task to be updated.
+ * @param {Array} task.depends - An array of dependency identifiers associated with the task.
+ * @returns {Promise<Object|undefined>} A promise resolving to the response JSON if the request is successful,
+ * or undefined if an error occurs during the process.
+ * @throws {Error} Throws an error if the server responds with a non-ok status.
  */
-const updateTask = async (taskId, task) => {
-
-    let updateSuccess = false;
-    let changeLogSuccess = false;
-
-    // Update the task
+const updateTaskDependencies = async (task) => {
     try {
-        console.log("Updating task: ", task);
-        const response = await fetch(`${server}/updateTask?taskId=${taskId}`, {
+        const response = await fetch(`${server}/updateTaskDependencies`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(task)
+            body: JSON.stringify({taskId: task.id, dependencies: task.depends})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const json = await response.json();
+        console.log("Task dependencies updated successfully:", json);
+        return json;
+    } catch (error) {
+        console.error(`Error updating task dependencies for ${task.id}:`, error);
+    }
+};
+
+/**
+ * Updates the resources assigned to a specific task on the server.
+ *
+ * @param {Object} task - An object representing the task to be updated.
+ * @param {string} task.id - The unique identifier of the task.
+ * @param {Array} task.assigs - The list of resources to be assigned to the task.
+ * @return {Promise<Object>} A promise that resolves to the server's response after updating the task resources.
+ *                            If the fetch operation fails, the promise will reject with an error.
+ */
+const updateTaskResources = async (task) => {
+    try {
+        const response = await fetch(`${server}/updateTaskResources`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({taskId: task.id, resources: task.assigs})
         });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        updateSuccess = true; // Mark update as successful
+        const json = await response.json();
+        console.log("Task resources updated successfully:", json);
+        return json;
     } catch (error) {
-        console.error(`Error updating task ${taskId}:`, error);
+        console.error(`Error updating task resources for ${task.id}:`, error);
     }
+}
 
+
+
+/**
+ * Updates a task and logs the change for audit purposes.
+ *
+ * This method first attempts to log the change of a task for audit purposes.
+ * It then proceeds to update the task itself. Both operations have independent
+ * success states.
+ *
+ * @param {string} userId - The ID of the user making the update request.
+ * @param {Object} task - The task object containing task details to be updated.
+ * @return {Object} - An object containing the success statuses of both the update operation (`updateSuccess`)
+ *                    and the change log operation (`changeLogSuccess`).
+ */
+const updateTask = async (userId, task) => {
+
+    let updateSuccess = false;
+    let changeLogSuccess = false;
+    let changeSummary = {};
+    // Track the change first
     // Logging and adding task change for audit purposes
     try {
-        const auditResponse = await addTaskChange(taskId, task);
+        const auditResponse = await addTaskChange(userId, task);
         if (auditResponse) {
             changeLogSuccess = true; // Mark task change log as successful if the response is valid
+            changeSummary = auditResponse.changeSummary;
+            console.log("Task change logged successfully:", changeSummary);
         }
     } catch (error) {
         console.error(`Error adding task change for ${taskId}:`, error);
     }
 
+    // Then Update the task
+    try {
+        console.log("Updating task: ", task);
+
+        if(changeSummary.hasOwnProperty('newValues'))
+        {
+            if(changeSummary.newValues.hasOwnProperty('assigs'))
+            {
+                const utrResult =  await updateTaskResources(task);
+                delete changeSummary.newValues.assigs;
+            }
+            if(changeSummary.newValues.hasOwnProperty('depends'))
+            {
+                const utdResult = await updateTaskDependencies(task);
+                delete changeSummary.newValues.depends;
+            }
+            if(changeSummary.newValues.hasOwnProperty('start'))
+            {
+
+                const start_date = new Date(changeSummary.newValues.start).toISOString().replace('T', ' ').replace('Z', '');
+                changeSummary.newValues.start = start_date;
+            }
+            if(changeSummary.newValues.hasOwnProperty('end'))
+            {
+
+                const end_date = new Date(changeSummary.newValues.end).toISOString().replace('T', ' ').replace('Z', '');
+                changeSummary.newValues.end = end_date;
+            }
+            
+            let changeTxt = JSON.stringify(changeSummary.newValues);
+            console.log("Change summary: ", changeTxt);
+            changeTxt = changeTxt.replace(/"start":/g, '"start_date":').replace(/"end":/g, '"end_date":');
+            console.log("Change summary Edited: ", changeTxt);
+
+            const response = await fetch(`${server}/updateTask?taskId=${task.id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: changeTxt
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+        }
+        updateSuccess = true; // Mark update as successful
+    } catch (error) {
+        console.error(`Error updating task ${task.id}:`, error);
+    }
+
+
+
     // Return success status for both operations
     return {updateSuccess, changeLogSuccess};
 };
+
+
+
 
 const getEnumerationTable = async (typeName) => {
     try{

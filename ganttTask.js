@@ -84,7 +84,8 @@ function createShallowProxy(target, onChangeCallback) {
               id: obj.id,
               property: prop,
               oldValue: oldValue,
-              newValue: value
+              newValue: value,
+              task: target
             });
           }
         }
@@ -137,11 +138,22 @@ function createShallowProxy(target, onChangeCallback) {
 
                   if (Object.keys(changes).length > 0)
                   {
-                    console.log("Changes detected for task:", obj.id);
-                    console.log("Change Details:", changes);
+                    // console.log("Changes detected for task:", obj.id);
+                    // console.log("Change Details:", changes);
+                    if (typeof onChangeCallback === "function") {
+                      Object.entries(changes).forEach(([property, changeDetails]) => {
+                        debouncedCallback({
+                          id: obj.id,
+                          property: property,
+                          oldValue: changeDetails.oldValue,
+                          newValue: changeDetails.newValue,
+                          task: target
+                        });
+                      });
+                    }
                   } else
                   {
-                    console.log("No changes detected for task:", obj.id);
+                    // console.log("No changes detected for task:", obj.id);
                   }
                 }
                 else
@@ -258,12 +270,41 @@ function createShallowProxy(target, onChangeCallback) {
 // }
 
 function TaskFactory() {
+  /**
+   * Builds a new Task object and returns a shallow proxy around it with a callback for changes.
+   *
+   * @param {string|number} id - The unique identifier for the task.
+   * @param {string} name - The name of the task.
+   * @param {string} code - A code associated with the task.
+   * @param {number} level - The hierarchical level of the task.
+   * @param {Date|string|number} start - The starting date or time for the task.
+   * @param {number} duration - The duration of the task in desired units (e.g., hours, days).
+   * @param {boolean} collapsed - Indicates whether the task is collapsed or expanded in a UI context.
+   * @param {function} onChangeCallback - A callback function to be invoked when the task is updated.
+   *
+   * @return {Proxy} A Proxy object wrapping the Task instance with the provided onChangeCallback.
+   */
   this.build = function (id, name, code, level, start, duration, collapsed, onChangeCallback) {
     const adjusted_start = computeStart(start);
     const calculated_end = computeEndByDuration(adjusted_start, duration);
     const task = new Task(id, name, code, level, adjusted_start, calculated_end, duration, collapsed);
 
     return createShallowProxy(task, onChangeCallback);
+    // return {task: task, proxy:createShallowProxy(task, onChangeCallback)};
+  };
+
+  /**
+   * Constructs a simple object or structure using the provided logic.
+   *
+   * This function is intended to handle straightforward construction logic,
+   * often in cases where no complex transformation or processing is needed.
+   */
+  this.buildSimple = function (id, name, code, level, start, duration, collapsed) {
+    const adjusted_start = computeStart(start);
+    const calculated_end = computeEndByDuration(adjusted_start, duration);
+    const task = new Task(id, name, code, level, adjusted_start, calculated_end, duration, collapsed);
+
+    return task;
     // return {task: task, proxy:createShallowProxy(task, onChangeCallback)};
   };
 }
@@ -1089,12 +1130,12 @@ Task.prototype.changeStatus = function (newStatus,forceStatusCheck) {
       work for all changes in the parents/children
    */
 
-  updateTask(this.id, {status: newStatus}).then((result) => {
-    this.lastDBInteraction = result;
-  }).catch((error) => {
-    this.lastDBInteraction = error;
-    console.error("Failed to update task status:", error);
-  });
+  // updateTask(this.id, {status: newStatus}).then((result) => {
+  //   this.lastDBInteraction = result;
+  // }).catch((error) => {
+  //   this.lastDBInteraction = error;
+  //   console.error("Failed to update task status:", error);
+  // });
 
   //first call
   if (propagateStatus(this, newStatus, manuallyChanged, false, false)) {
@@ -1119,6 +1160,8 @@ Task.prototype.synchronizeStatus = function () {
   return this.changeStatus(oldS,true);
 };
 
+
+/* TODO: Sort this out to work with the updated statuses */
 /**
  * Checks if the task is blocked locally due to unresolved dependencies.
  * Returns a boolean indicating whether the task cannot proceed because

@@ -33,8 +33,12 @@ const { executeSQL,
     getProjectTaskUserSetup,
     countTaskAncestors,
     getCombinedProjectTaskDetails,
+    getCombinedTaskDetails,
     getProjectUserSetup,
-    getTaskDependencies, getTaskResources
+    getTaskDependencies, 
+    getTaskResources,
+    updateTaskResourceAssociation,
+    updateTaskDependencies
 
 } = require('./seaviewConnection');
 
@@ -379,6 +383,44 @@ app.post('/addTaskChange', async (req, res) => {
     }
 })
 
+
+app.post('/updateTaskResourceAssociation', async (req, res) => {
+    try {
+        console.log('Updating task-resource association...');
+        const {taskId, resourceId, associationDetails} = req.body; // Parse input data from the POST body
+
+        if (!taskId || !resourceId || !associationDetails) {
+            return res.status(400).send('Task ID, resource ID, or association details not provided.');
+        }
+
+        const updatedAssociation = await updateTaskResourceAssociation(taskId, resourceId, associationDetails); // Call your function
+        res.json(updatedAssociation);
+    } catch (error) {
+        console.error('Error updating task-resource association:', error);
+        res.status(500).send('An error occurred while updating the task-resource association.');
+    }
+});
+
+
+app.post('/updateTaskDependencies', async (req, res) => {
+    try {
+        console.log('Updating task dependencies...');
+        const {taskId, dependencies} = req.body; // Parse input data from the POST body
+
+        if (!taskId || !dependencies) {
+            return res.status(400).send('Task ID or dependencies not provided.');
+        }
+
+        const updatedDependencies = await updateTaskDependencies(taskId, dependencies); // Call your function to handle updating dependencies
+        res.json(updatedDependencies);
+    } catch (error) {
+        console.error('Error updating task dependencies:', error);
+        res.status(500).send('An error occurred while updating the task dependencies.');
+    }
+});
+
+
+
 app.get( '/maxTaskChangeId', async (req, res) => {
     try{
         const maxTaskChangeId = await getMaxTaskChangeID();
@@ -477,6 +519,25 @@ app.get('/getCombinedProjectTaskDetails', async (req, res) => {
         res.status(500).send('An error occurred while getting the combined project task details.');
     }
 })
+
+app.get('/getCombinedTaskDetails', async (req, res) => {
+    const taskId = req.query.taskId;
+    const userId = req.query.userId;
+    const activeOnly = req.query.activeOnly;
+    // console.log('Getting combined task details...');
+    // console.log('Task ID:', taskId);
+    // console.log('User ID:', userId);
+    // console.log('Active only:', activeOnly);
+    try{
+        // console.log('Getting combined project task details...');
+        const details = await getCombinedTaskDetails(taskId, userId, activeOnly);
+        res.json(details);
+    } catch (error) {
+        console.error('Error getting combined project task details:', error);
+        res.status(500).send('An error occurred while getting the combined project task details.');
+    }
+})
+
 
 app.get('/getProjectUserSetup', async (req, res) => {
     const projectId = req.query.projectId;

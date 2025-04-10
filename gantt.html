@@ -154,6 +154,8 @@
 </script>
 <script>
     $(document).ready(() => {
+
+        /* TODO: Need to sort this to work with cookie based storage */
         let userID = -1;
         getMyUserID().then(result => {
             userID = result;
@@ -612,7 +614,10 @@ function() {
         var canWrite = true; //this is the default for test purposes
 
         // here starts gantt initialization
-        ge = new GanttMaster();
+
+    /* TODO: Initialisae the userID properly */
+
+        ge = new GanttMaster(1);
 
         // Find the workspace element
         const workSpaceElement = $("#workSpace");
@@ -634,12 +639,12 @@ function() {
             }
             return project;
         }).then(async project => {
-            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 1");
-            // const tasks = await ge.loadTasksFromPostgreSQL(1);
-            console.log("tasks: ", ge.tasks);
-            console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 1.1");
-            return {project, tasks};
-        }).then(({project, tasks}) => {
+        //     console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 1");
+        //     // const tasks = await ge.loadTasksFromPostgreSQL(1);
+        //     console.log("tasks: ", ge.tasks);
+        //     console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 1.1");
+        //     return {project, tasks};
+        // }).then(({project, tasks}) => {
             console.log(">>>>>>>>>>>>>>>>>>>>>> G Debug: 2");
 
             ge.set100OnClose = true;

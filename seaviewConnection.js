@@ -365,8 +365,8 @@ async function addTaskChange(taskID, changedBy, oldValues, newValues)
     ];
 
     try {
-        // console.log("addTaskChange query: " + query);
-        // console.log("addTaskChange values: " + values);
+        console.log("addTaskChange query: " + query);
+        console.log("addTaskChange values: " + values);
         const result = await executeSQL(query, values);
         // console.log("addTaskChange result: " + result);
         return result.rows[0];
@@ -464,6 +464,109 @@ async function updateTask(taskID, updates)
     //     const taskChangeResult = await addTaskChange(taskID, changedBy, oldValues, updates);
     // }
 }
+
+
+/**
+ * Updates the resource assignments for a task in the 'seaview.task_resource_association' table.
+ * Removes rows that are not represented in the provided 'assignedResources' array
+ * and adds rows for new entries.
+ *
+ * @param {number} taskID - The ID of the task to update the resource assignments for.
+ * @param {Array<number>} assignedResources - An array of resource IDs to be assigned to the task.
+ * @returns {Promise<void>} A promise that resolves once the operation is complete.
+ */
+async function updateTaskResourceAssociation(taskID, assignedResources) {
+    try {
+        // Step 1: Retrieve all existing resource assignments for the task
+        const existingResourcesQuery = `
+            SELECT resource_id
+            FROM seaview.task_resource_association
+            WHERE task_id = $1;
+        `;
+        const existingResourcesResult = await executeSQL(existingResourcesQuery, [taskID]);
+        const existingResources = existingResourcesResult.rows.map(row => row.resource_id);
+
+        // Step 2: Determine which resources to remove and which to add
+        const resourcesToRemove = existingResources.filter(resourceID => !assignedResources.includes(resourceID));
+        const resourcesToAdd = assignedResources.filter(resourceID => !existingResources.includes(resourceID));
+
+        // Step 3: Remove entries for resources that are no longer assigned
+        if (resourcesToRemove.length > 0) {
+            const removeQuery = `
+                DELETE FROM seaview.task_resource_association
+                WHERE task_id = $1 AND resource_id = ANY($2::int[]);
+            `;
+            await executeSQL(removeQuery, [taskID, resourcesToRemove]);
+        }
+
+        // Step 4: Add entries for new resource assignments
+        if (resourcesToAdd.length > 0) {
+            const values = resourcesToAdd.map(resourceID => `(${taskID}, ${resourceID})`).join(", ");
+            const addQuery = `
+                INSERT INTO seaview.task_resource_association (task_id, resource_id)
+                VALUES ${values};
+            `;
+            await executeSQL(addQuery);
+        }
+
+        console.log(`Task resource associations for task ID ${taskID} successfully updated.`);
+    } catch (error) {
+        console.error("Error updating task resource associations:", error);
+        throw error;
+    }
+}
+
+
+/**
+ * Updates the task dependencies in the 'seaview.task_dependencies' table.
+ * Removes rows that are not represented in the provided 'predecessors' array
+ * and adds rows for new dependencies.
+ *
+ * @param {number} taskID - The ID of the task (successor).
+ * @param {Array<number>} predecessors - An array of task IDs (predecessors) to be assigned to the task.
+ * @returns {Promise<void>} A promise that resolves once the operation is complete.
+ */
+async function updateTaskDependencies(taskID, predecessors) {
+    try {
+        // Step 1: Retrieve all existing dependencies for the task
+        const existingDependenciesQuery = `
+            SELECT predecessor_id
+            FROM seaview.task_dependencies
+            WHERE successor_id = $1;
+        `;
+        const existingDependenciesResult = await executeSQL(existingDependenciesQuery, [taskID]);
+        const existingDependencies = existingDependenciesResult.rows.map(row => row.predecessor_id);
+
+        // Step 2: Determine which dependencies to remove and which to add
+        const dependenciesToRemove = existingDependencies.filter(predecessorID => !predecessors.includes(predecessorID));
+        const dependenciesToAdd = predecessors.filter(predecessorID => !existingDependencies.includes(predecessorID));
+
+        // Step 3: Remove entries for dependencies that are no longer assigned
+        if (dependenciesToRemove.length > 0) {
+            const removeQuery = `
+                DELETE FROM seaview.task_dependencies
+                WHERE successor_id = $1 AND predecessor_id = ANY($2::int[]);
+            `;
+            await executeSQL(removeQuery, [taskID, dependenciesToRemove]);
+        }
+
+        // Step 4: Add entries for new dependencies
+        if (dependenciesToAdd.length > 0) {
+            const values = dependenciesToAdd.map(predecessorID => `(${predecessorID}, ${taskID})`).join(", ");
+            const addQuery = `
+                INSERT INTO seaview.task_dependencies (predecessor_id, successor_id)
+                VALUES ${values};
+            `;
+            await executeSQL(addQuery);
+        }
+
+        console.log(`Task dependencies for task ID ${taskID} successfully updated.`);
+    } catch (error) {
+        console.error("Error updating task dependencies:", error);
+        throw error;
+    }
+}
+
 
 async function getResourceID(username)
 {
@@ -1095,6 +1198,83 @@ async function getCombinedProjectTaskDetails(projectID, userID, activeOnly=true)
     }
 }
 
+/**
+ * Retrieves combined task details for a specific project, user, and task view settings.
+ * Retrieves tasks, optionally filtered by active status, and includes hierarchy,
+ * user-specific view options, and project-specific task line numbers.
+ *
+ * @param {number} taskID - The ID of the task to retrieve details for.
+ * @param {number} userID - The ID of the user requesting the task details.
+ * @param {boolean} [activeOnly=true] - A flag to filter only active tasks. Defaults to true.
+ * @return {Promise<Object>} A promise that resolves with the combined task details, including task metadata and user view options.
+ * @throws {Error} Throws an error if the query execution fails or no tasks are found for the given project ID.
+ */
+async function getCombinedTaskDetails(taskID, userID, activeOnly=true) {
+    const activeFilter = activeOnly ? "AND t.is_active = true" : "";
+
+    const combinedQuery = `WITH tasks_for_project AS (
+    SELECT *
+    FROM seaview.tasks t
+    WHERE id = $1 ${activeFilter} ), insert_guptvo AS (
+                           INSERT
+                           INTO seaview.gantt_user_project_tasks_view_options (project_id, task_id, user_id)
+                           SELECT t.project_id, t.id, $2
+                           FROM tasks_for_project t
+                               LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
+                           ON t.id = guptvo.task_id AND guptvo.project_id = t.project_id AND guptvo.user_id = $2
+                           WHERE guptvo.task_id IS NULL
+                               RETURNING task_id
+                               )
+                               , task_hierarchy AS (
+                           WITH RECURSIVE hierarchy_cte AS (
+                               SELECT id AS task_id, parent_id, 0 AS level
+                               FROM seaview.tasks t
+                               WHERE project_id = t.project_id ${activeFilter}
+                               UNION ALL
+                               SELECT t.id AS task_id, t.parent_id, level + 1
+                               FROM seaview.tasks t
+                               INNER JOIN hierarchy_cte h ON t.parent_id = h.task_id
+                               )
+                           SELECT task_id, MAX (level) AS hierarchy_level
+                           FROM hierarchy_cte
+                           GROUP BY task_id
+                               ),
+                               final_combination AS (
+                           SELECT t.*, th.hierarchy_level, guptvo.collapsed, ptl.line_number
+                           FROM tasks_for_project t
+                               LEFT JOIN task_hierarchy th
+                           ON t.id = th.task_id
+                               LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
+                               ON t.id = guptvo.task_id AND guptvo.user_id = $2
+                               LEFT JOIN (
+                                   SELECT task_id, line_number 
+                                   FROM seaview.project_task_line 
+                               ) ptl ON t.id = ptl.task_id
+                               )
+    SELECT *
+    FROM final_combination
+    WHERE title IS NOT NULL
+      AND title != 'Blank'
+    ORDER BY line_number ASC;`;
+    try {
+        // console.log('getCombinedTaskDetails query: \n\r', combinedQuery);
+        // console.log('taskID: ', taskID);
+        // console.log('userID: ', userID);
+        // console.log('activeOnly: ', activeOnly);
+        const combinedResult = await executeSQL(combinedQuery, [taskID, userID]);
+        // console.log('getCombinedTaskDetails result: \n\r', combinedResult);
+        if (combinedResult.rows.length === 0) {
+            throw new Error(`No tasks found for task ID ${taskID}.`);
+        }
+        return combinedResult;
+    } catch (error) {
+        console.error("Error getting combined task details:", error);
+        throw error;
+    }
+}
+
+
+
 async function getProjectUserSetup(projectID, userID) {
     const query = `SELECT * FROM seaview.gantt_user_project_view_options WHERE project_id = $1 AND user_id = $2`;
     try {
@@ -1172,8 +1352,11 @@ module.exports = {
     getProjectTaskUserSetup,
     countTaskAncestors,
     getCombinedProjectTaskDetails,
+    getCombinedTaskDetails,
     getProjectUserSetup,
     getTaskDependencies,
+    updateTaskResourceAssociation,
+    updateTaskDependencies,
     getTaskResources
 }
 
