@@ -186,6 +186,7 @@
         //     ganttMaster.loadTasksFromPostgreSQL(projectId);// Example function from ganttMaster
         // };
 
+
         // Function to create hierarchical menu
         const createHierarchicalMenu = async () => {
             try
@@ -228,6 +229,22 @@
                         .data('id', portfolio.id)
                         .data('type', 'portfolio');
 
+                    // Add triangle indicator to the portfolio div
+                    const triangle = $("<span>")
+                        .addClass("triangle")
+                        .css({
+                            display: "inline-block",
+                            marginRight: "8px",
+                            width: "0",
+                            height: "0",
+                            borderLeft: "8px solid black",
+                            borderTop: "5px solid transparent",
+                            borderBottom: "5px solid transparent",
+                            borderRight: "none",
+                            verticalAlign: "middle",
+                        });
+                    portfolioDiv.prepend(triangle);
+
                     portfolioDiv.on("click", function () {
                         // Show portfolio details
                         showSummaryWindow("Portfolio", portfolio.id);
@@ -244,11 +261,22 @@
                             // childProgrammes.slideUp();
                             // childProjects.slideUp();
                             $(this).nextUntil(".portfolio").slideUp();
+                            triangle.css({
+                                borderLeft: "8px solid black",
+                                borderTop: "5px solid transparent",
+                                borderBottom: "5px solid transparent",
+                                borderRight: "none",
+                            }); // Point triangle to the right
                         }
                         else
                         {
                             childProgrammes.slideDown();
                             childProjects.slideDown();
+                            triangle.css({
+                                borderLeft: "5px solid transparent",
+                                borderRight: "5px solid transparent",
+                                borderTop: "8px solid black",
+                                borderBottom: "none",});
                         }
 
                         window.getSelection()?.removeAllRanges();
@@ -277,6 +305,21 @@
                                 .data('type', 'programme')
                                 .css("display", "none"); // Initially hidden
 
+                            const progTriangle = $("<span>")
+                                .addClass("triangle")
+                                .css({
+                                    display: "inline-block",
+                                    marginRight: "8px",
+                                    width: "0",
+                                    height: "0",
+                                    borderLeft: "8px solid black",
+                                    borderTop: "5px solid transparent",
+                                    borderBottom: "5px solid transparent",
+                                    borderRight: "none",
+                                    verticalAlign: "middle",
+                                });
+                            programmeDiv.prepend(progTriangle);
+
                             programmeDiv.on("click", function () {
                                 // Show programme details
                                 showSummaryWindow("Programme", programme.id);
@@ -288,9 +331,21 @@
                                 const visibleChildren = childProjects.filter(":visible");
                                 if (visibleChildren.length > 0) {
                                     childProjects.slideUp();
+                                    progTriangle.css({
+                                        borderLeft: "8px solid black",
+                                        borderTop: "5px solid transparent",
+                                        borderBottom: "5px solid transparent",
+                                        borderRight: "none",
+                                    }); // Point triangle to the right
                                 } else {
                                     console.log("Child Projects: ", childProjects);
                                     childProjects.slideDown();
+                                    progTriangle.css({
+                                        borderLeft: "5px solid transparent",
+                                        borderRight: "5px solid transparent",
+                                        borderTop: "8px solid black",
+                                        borderBottom: "none",
+                                    }); // Point triangle down
                                 }
                                 window.getSelection()?.removeAllRanges();
                             });
