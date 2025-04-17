@@ -425,14 +425,9 @@ async function updateTask(taskID, updates)
     const query = `
         UPDATE seaview.tasks
         SET ${fields.join(", ")}
-        WHERE id = $${index}
+        WHERE id = ${taskID}
         RETURNING *;
     `;
-
-    values.push(taskID); // Add taskID as the final parameter in the query
-
-
-    const result = await executeSQL(query, values); // Add the values to the query execution
 
     try {
 
@@ -468,40 +463,53 @@ async function updateTask(taskID, updates)
 
 /**
  * Updates the resource assignments for a task in the 'seaview.task_resource_association' table.
- * Removes rows that are not represented in the provided 'assignedResources' array
- * and adds rows for new entries.
+ * Removes rows that are not represented in the provided 'resources' array
+ * and adds rows for new entries, including additional fields like roleId and effort.
  *
- * @param {number} taskID - The ID of the task to update the resource assignments for.
- * @param {Array<number>} assignedResources - An array of resource IDs to be assigned to the task.
+ * @param {Object} taskResourceAssociation - An object containing the task ID and an array of resource assignments.
  * @returns {Promise<void>} A promise that resolves once the operation is complete.
  */
-async function updateTaskResourceAssociation(taskID, assignedResources) {
+async function updateTaskResourceAssociation(taskResourceAssociation) {
     try {
+        // console.log("updateTaskResourceAssociation taskResourceAssociation: " + JSON.stringify(taskResourceAssociation));
+        const {taskId, resources} = taskResourceAssociation;
+        // console.log("updateTaskResourceAssociation taskID: " + taskId);
+        // console.log("updateTaskResourceAssociation resources: " + JSON.stringify(resources));
+
+        // Filter out any resources where the resourceId contains the substring "tmp"
+        const filteredResources = resources.filter(resource => !resource.id.includes("tmp"));
+        // console.log("Filtered resources (excluding 'tmp'): " + JSON.stringify(filteredResources));
+        
         // Step 1: Retrieve all existing resource assignments for the task
         const existingResourcesQuery = `
             SELECT resource_id
             FROM seaview.task_resource_association
             WHERE task_id = $1;
         `;
-        const existingResourcesResult = await executeSQL(existingResourcesQuery, [taskID]);
+        const existingResourcesResult = await executeSQL(existingResourcesQuery, [taskId]);
         const existingResources = existingResourcesResult.rows.map(row => row.resource_id);
 
-        // Step 2: Determine which resources to remove and which to add
-        const resourcesToRemove = existingResources.filter(resourceID => !assignedResources.includes(resourceID));
-        const resourcesToAdd = assignedResources.filter(resourceID => !existingResources.includes(resourceID));
+        // Step 2: Extract resource IDs from the input resources array
+        const assignedResourceIDs = resources.map(resource => resource.resourceId);
 
-        // Step 3: Remove entries for resources that are no longer assigned
+        // Step 3: Determine which resources to remove and which to add
+        const resourcesToRemove = existingResources.filter(resourceId => !assignedResourceIDs.includes(resourceId));
+        const resourcesToAdd = resources.filter(resource => !existingResources.includes(resource.resourceId));
+
+        // Step 4: Remove entries for resources that are no longer assigned
         if (resourcesToRemove.length > 0) {
             const removeQuery = `
                 DELETE FROM seaview.task_resource_association
                 WHERE task_id = $1 AND resource_id = ANY($2::int[]);
             `;
-            await executeSQL(removeQuery, [taskID, resourcesToRemove]);
+            await executeSQL(removeQuery, [taskId, resourcesToRemove]);
         }
 
-        // Step 4: Add entries for new resource assignments
+        // Step 5: Add entries for new resource assignments
         if (resourcesToAdd.length > 0) {
-            const values = resourcesToAdd.map(resourceID => `(${taskID}, ${resourceID})`).join(", ");
+            const values = resourcesToAdd
+                .map(resource => `(${taskId}, ${resource.resourceId})`)
+                .join(", ");
             const addQuery = `
                 INSERT INTO seaview.task_resource_association (task_id, resource_id)
                 VALUES ${values};
@@ -509,7 +517,18 @@ async function updateTaskResourceAssociation(taskID, assignedResources) {
             await executeSQL(addQuery);
         }
 
-        console.log(`Task resource associations for task ID ${taskID} successfully updated.`);
+        console.log(`Task resource associations for task ID ${taskId} successfully updated.`);
+
+        // Step 6: Return a summary of the changes made as a JSON object
+        return {
+            taskId: taskId,
+            removedResources: resourcesToRemove,
+            addedResources: resourcesToAdd.map(resource => ({
+                resourceId: resource.resourceId,
+                roleId: resource.roleId ?? null,
+                effort: resource.effort ?? null
+            }))
+        };
     } catch (error) {
         console.error("Error updating task resource associations:", error);
         throw error;
@@ -563,6 +582,53 @@ async function updateTaskDependencies(taskID, predecessors) {
         console.log(`Task dependencies for task ID ${taskID} successfully updated.`);
     } catch (error) {
         console.error("Error updating task dependencies:", error);
+        throw error;
+    }
+}
+
+
+async function updateTaskCollapsed(taskID, userId, isCollapsed) {
+    try {
+        if(isCollapsed === undefined) {
+            isCollapsed = false;
+        }
+        console.log()
+        const checkQuery = `
+        SELECT id, user_id, task_id, collapsed
+        FROM seaview.gantt_user_project_tasks_view_options
+        WHERE user_id = $1 AND task_id = $2;
+    `;
+        const checkResult = await executeSQL(checkQuery, [userId, taskID]);
+
+        if (checkResult.rows.length === 0) {
+
+            // Look up the project ID of the task from the seaview.tasks table
+            const getProjectIdQuery = `
+                SELECT project_id
+                FROM seaview.tasks
+                WHERE id = $1;
+            `;
+            const projectIdResult = await executeSQL(getProjectIdQuery, [taskID]);
+            if (projectIdResult.rows.length === 0) {
+                throw new Error(`No project found for task ID ${taskID}.`);
+            }
+            const projectID = projectIdResult.rows[0].project_id;
+            
+            const insertQuery = `
+            INSERT INTO seaview.gantt_user_project_tasks_view_options (user_id, task_id, project_id, collapsed)
+            VALUES ($1, $2, $3, false);
+        `;
+            await executeSQL(insertQuery, [userId, taskID, projectID]);
+        } else {
+            const updateQuery = `
+            UPDATE seaview.gantt_user_project_tasks_view_options
+            SET collapsed = $1
+            WHERE user_id = $2 AND task_id = $3;
+        `;
+            await executeSQL(updateQuery, [isCollapsed, userId, taskID]);
+        }
+    } catch (error) {
+        console.error("Error updating task collapsed:", error);
         throw error;
     }
 }
@@ -1357,6 +1423,7 @@ module.exports = {
     getTaskDependencies,
     updateTaskResourceAssociation,
     updateTaskDependencies,
+    updateTaskCollapsed,
     getTaskResources
 }
 

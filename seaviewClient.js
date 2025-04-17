@@ -453,7 +453,7 @@ const updateTaskDependencies = async (task) => {
  */
 const updateTaskResources = async (task) => {
     try {
-        const response = await fetch(`${server}/updateTaskResources`, {
+        const response = await fetch(`${server}/updateTaskResourceAssociation`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -471,6 +471,24 @@ const updateTaskResources = async (task) => {
     }
 }
 
+const updateTaskCollapsed = async (task, userId) => {
+    try {
+        if(!(typeof task.collapsed === 'boolean') || task.collapsed === null)
+        {
+            task.collapsed = false;
+        }
+        const response = await fetch(`${server}/updateTaskCollapsed?taskId=${task.id}&userId=${userId}&collapsed=${task.collapsed}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        // const json = await response.json();
+        // console.log("Task collapsed updated successfully:", json);
+        // return json;
+        return true;
+    } catch (error) {
+        console.error(`Error updating task collapsed for ${task.id}:`, error);
+    }
+}
 
 
 /**
@@ -519,6 +537,11 @@ const updateTask = async (userId, task) => {
                 const utdResult = await updateTaskDependencies(task);
                 delete changeSummary.newValues.depends;
             }
+            if(changeSummary.newValues.hasOwnProperty('collapsed'))
+            {
+                const utcResult = updateTaskCollapsed(task, userId);
+                delete changeSummary.newValues.collapsed;
+            }
             if(changeSummary.newValues.hasOwnProperty('start'))
             {
 
@@ -534,7 +557,7 @@ const updateTask = async (userId, task) => {
             
             let changeTxt = JSON.stringify(changeSummary.newValues);
             console.log("Change summary: ", changeTxt);
-            changeTxt = changeTxt.replace(/"start":/g, '"start_date":').replace(/"end":/g, '"end_date":');
+            changeTxt = changeTxt.replace(/"start":/g, '"start_date":').replace(/"end":/g, '"end_date":').replace(/"name":/g, '"title":');
             console.log("Change summary Edited: ", changeTxt);
 
             const response = await fetch(`${server}/updateTask?taskId=${task.id}`, {

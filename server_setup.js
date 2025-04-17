@@ -38,6 +38,7 @@ const { executeSQL,
     getTaskDependencies, 
     getTaskResources,
     updateTaskResourceAssociation,
+    updateTaskCollapsed,
     updateTaskDependencies
 
 } = require('./seaviewConnection');
@@ -387,13 +388,11 @@ app.post('/addTaskChange', async (req, res) => {
 app.post('/updateTaskResourceAssociation', async (req, res) => {
     try {
         console.log('Updating task-resource association...');
-        const {taskId, resourceId, associationDetails} = req.body; // Parse input data from the POST body
+        // const {taskId, resourceId, associationDetails} = req.body; // Parse input data from the POST body
+        const resources = req.body;
 
-        if (!taskId || !resourceId || !associationDetails) {
-            return res.status(400).send('Task ID, resource ID, or association details not provided.');
-        }
-
-        const updatedAssociation = await updateTaskResourceAssociation(taskId, resourceId, associationDetails); // Call your function
+        const updatedAssociation = await updateTaskResourceAssociation(resources); // Call your function
+        console.log('----- updatedAssociation:', updatedAssociation);
         res.json(updatedAssociation);
     } catch (error) {
         console.error('Error updating task-resource association:', error);
@@ -585,3 +584,17 @@ app.get('/getTaskResources', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+app.get('/updateTaskCollapsed', async (req, res) => {
+  const taskId = req.query.taskId;
+  const userId = req.query.userId;
+  const collapsed = req.query.collapsed;
+  try{
+      const updateSuccess = await updateTaskCollapsed(taskId, userId, collapsed);
+      res.json(updateSuccess);
+  } catch (error) {
+      console.error('Error updating task collapse:', error);
+      console.log('taskId: ', taskId, ', userId: ', userId, ', collapsed: ', collapsed);
+      res.status(500).send('An error occurred while updating the task collapse.');
+  }
+})

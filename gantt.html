@@ -1229,6 +1229,7 @@ function showBaselineInfo (event,element){
   </table>
   --></div>
 
+
 <div class="__template__" type="TASKROW"><!--
   <tr id="tid_(#=obj.id#)" taskId="(#=obj.id#)" class="taskEditRow (#=obj.isParent()?'isParent':''#) (#=obj.collapsed?'collapsed':''#)" level="(#=level#)">
     <th class="gdfCell edit" align="right" style="cursor:pointer;"><span class="taskRowIndex">(#=obj.getRow()+1#)</span> <span class="teamworkIcon" style="font-size:12px;" >e</span></th>
@@ -1360,10 +1361,8 @@ function showBaselineInfo (event,element){
     <h2>Assignments</h2>
   <table  cellspacing="1" cellpadding="0" width="100%" id="assigsTable">
     <tr>
-      <th style="width:100px;">name</th>
-      <th style="width:70px;">Role</th>
-      <th style="width:30px;">est.wklg.</th>
-      <th style="width:30px;" id="addAssig"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+      <th style="width:100px;">Title</th>
+      <th style="width:30px;cursor: pointer" id="addAssig"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
     </tr>
   </table>
 
@@ -1374,18 +1373,21 @@ function showBaselineInfo (event,element){
   </div>
   --></div>
 
+<!--    Removed lines from TASK_EDITOR:-->
+<!--    <th style="width:70px;">Role</th>-->
+<!--    <th style="width:30px;">est.wklg.</th>-->
 
 
-<div class="__template__" type="ASSIGNMENT_ROW"><!--
+    <div class="__template__" type="ASSIGNMENT_ROW"><!--
   <tr taskId="(#=obj.task.id#)" assId="(#=obj.assig.id#)" class="assigEditRow" >
     <td ><select name="resourceId"  class="formElements" (#=obj.assig.id.indexOf("tmp_")==0?"":"disabled"#) ></select></td>
-    <td ><select type="select" name="roleId"  class="formElements"></select></td>
-    <td ><input type="text" name="effort" value="(#=getMillisInHoursMinutes(obj.assig.effort)#)" size="5" class="formElements"></td>
-    <td align="center"><span class="teamworkIcon delAssig del" style="cursor: pointer">d</span></td>
+    <td align="center" style="cursor: pointer"><span class="teamworkIcon delAssig del" style="cursor: pointer">d</span></td>
   </tr>
   --></div>
 
-
+<!--    Removed lines from assignment_row.html-->
+<!--    <td ><select type="select" name="roleId"  class="formElements"></select></td>-->
+<!--    <td ><input type="text" name="effort" value="(#=getMillisInHoursMinutes(obj.assig.effort)#)" size="5" class="formElements"></td>-->
 
 <div class="__template__" type="RESOURCE_EDITOR"><!--
   <div class="resourceEditor" style="padding: 5px;">
@@ -1394,7 +1396,7 @@ function showBaselineInfo (event,element){
     <table  cellspacing="1" cellpadding="0" width="100%" id="resourcesTable">
       <tr>
         <th style="width:100px;">name</th>
-        <th style="width:30px;" id="addResource"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+        <th style="width:30px;cursor: pointer" id="addResource"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
       </tr>
     </table>
 
@@ -1407,7 +1409,7 @@ function showBaselineInfo (event,element){
 <div class="__template__" type="RESOURCE_ROW"><!--
   <tr resId="(#=obj.id#)" class="resRow" >
     <td ><input type="text" name="name" value="(#=obj.name#)" style="width:100%;" class="formElements"></td>
-    <td align="center"><span class="teamworkIcon delRes del" style="cursor: pointer">d</span></td>
+    <td align="center" style="cursor: pointer"><span class="teamworkIcon delRes del" style="cursor: pointer">d</span></td>
   </tr>
   --></div>
 
@@ -1442,6 +1444,7 @@ function showBaselineInfo (event,element){
 
     if(taskAssig.task.master.permissions.canWrite && taskAssig.task.canWrite){
       assigTr.find(".delAssig").click(function(){
+          console.log("delete assig");
         var tr = $(this).closest("[assId]").fadeOut(200, function(){$(this).remove()});
       });
     }
