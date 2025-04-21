@@ -20,6 +20,7 @@ function getCookie(name) {
     for (let i = 0; i < cookies.length; i++) {
         const [key, value] = cookies[i].split('=');
         if (key === name) {
+            console.log(`Cookie "${name}" found with value "${value}"`);
             return value;
         }
     }
@@ -39,6 +40,51 @@ function setCookie(name, value, days) {
     const date = new Date();
     date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000)); // Days to milliseconds
     document.cookie = `${name}=${value};expires=${date.toUTCString()};path=/`;
+    console.log(`Cookie "${name}" set to "${value}" for ${days} days.`);
+    console.log(document.cookie);
+    console.log(getCookie(name));
+}
+
+
+/**
+ * Deletes a cookie by its name.
+ *
+ * @param {string} name - The name of the cookie to delete.
+ * @return {void} This function does not return a value.
+ */
+function deleteCookie(name) {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/`;
+    console.log(`Cookie "${name}" has been deleted.`);
+}
+
+/**
+ * Calculates the rendered width of a given text string for a specific element's styles.
+ *
+ * @param {string} text The text string whose rendered width is to be measured.
+ * @param {jQuery} element A jQuery-wrapped DOM element used to retrieve font-related styling.
+ * @return {number} The rendered width of the text in pixels.
+ */
+function getTextWidth(text, element) {
+    // Create a hidden clone with same styling
+    const $temp = $('<span>')
+        .css({
+            position: 'absolute',
+            visibility: 'hidden',
+            whiteSpace: 'nowrap',
+            fontFamily: element.css('fontFamily'),
+            fontSize: element.css('fontSize'),
+            fontWeight: element.css('fontWeight')
+        })
+        .text(text)
+        .appendTo('body');
+
+    // Get the width
+    const width = $temp.width();
+
+    // Remove the temporary element
+    $temp.remove();
+
+    return width;
 }
 
 

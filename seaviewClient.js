@@ -201,6 +201,38 @@ const getUserID = async () => {
     }
 };
 
+
+/**
+ * Fetches the resource ID for a given username from the server.
+ *
+ * @async
+ * @function getResourceIdByUsername
+ * @param {string} username - The username for which the resource ID needs to be fetched.
+ * @returns {Promise<string|undefined>} Resolves with the resource ID if successful, or undefined if an error occurs.
+ */
+const getResourceIdByUsername = async (username) => {
+    try {
+        if (!username) {
+            throw new Error("Username must be provided.");
+        }
+
+        const response = await fetch(`${server}/getResourceIdByUsername?username=${username}`);
+        console.log("Fetching resource ID for username:", username);
+        console.log("Response:", response);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Response data:", data);
+        return data;
+    } catch (error) {
+        console.error(`Error fetching resource ID for username "${username}":`, error);
+    }
+};
+
+
 /**
  * Fetches a task by its ID from the server.
  *
@@ -651,6 +683,19 @@ const getProjectTaskUserSetup = async (taskID) => {
     }
 }
 
+/**
+ * Asynchronously retrieves the count of ancestor tasks for a specified task ID.
+ *
+ * This function sends a request to the server to fetch the number of ancestor tasks
+ * associated with the given task ID. On a successful response, it returns the count
+ * parsed from the server's JSON response. If an error occurs during the request or
+ * the response is unsuccessful, an error is logged to the console.
+ *
+ * @param {string} taskId - The unique identifier of the task for which ancestor count is requested.
+ * @returns {Promise<number | undefined>} A promise that resolves to the number of ancestor tasks
+ * associated with the given task ID. If an error occurs, the function will log the error and may
+ * return undefined.
+ */
 const getTaskAncestorCount = async (taskId) => {
     try{
         const response = await fetch(`${server}/countTaskAncestors?taskId=${taskId}`);
@@ -665,6 +710,15 @@ const getTaskAncestorCount = async (taskId) => {
     }
 }
 
+/**
+ * Asynchronously retrieves the user ID of the current user by making a fetch request to the server endpoint.
+ *
+ * Sends a GET request to the predefined server URL to fetch the user ID in JSON format. Handles HTTP errors
+ * and logs any issues that occur during the fetch attempt.
+ *
+ * @returns {Promise<Object|undefined>} A promise that resolves to the JSON response containing the user ID
+ * if the request is successful. Returns `undefined` if an error occurs.
+ */
 const getMyUserID = async () => {
     try{
         const response = await fetch(`${server}/getMyUserID`);
@@ -680,6 +734,15 @@ const getMyUserID = async () => {
     }
 }
 
+/**
+ * Fetches combined project and task details based on the provided project ID, user ID, and active-only filter.
+ *
+ * @param {string} projectID - The unique identifier for the project.
+ * @param {string} userID - The unique identifier for the user.
+ * @param {boolean} activeOnly - Determines whether to fetch only active tasks.
+ * @returns {Promise<Object>} A promise that resolves to the combined project and task details data.
+ * @throws {Error} If the fetch request fails or an HTTP error occurs.
+ */
 const getCombinedProjectTaskDetails = async (projectID, userID, activeOnly) => {
     try{
         const response = await fetch(`${server}/getCombinedProjectTaskDetails?projectId=${projectID}&userId=${userID}&activeOnly=${activeOnly}`);
@@ -694,6 +757,19 @@ const getCombinedProjectTaskDetails = async (projectID, userID, activeOnly) => {
     }
 }
 
+/**
+ * Fetches and processes the user setup for a specific project.
+ *
+ * This asynchronous function sends a GET request to the server to retrieve
+ * user-specific project setup data based on the provided project ID and user ID.
+ * It also maps the `zoom_level` in the response to a more readable format using
+ * a predefined mapping.
+ *
+ * @param {string} projectId - The unique identifier for the project.
+ * @param {string} userID - The unique identifier for the user.
+ * @returns {Promise<Object|undefined>} A promise that resolves to the processed project user setup data as an object, or `undefined` if an error occurs.
+ * @throws Will log an error message to the console if the request fails or the server responds with an error status.
+ */
 const getProjectUserSetup = async (projectId, userID) =>
 {
     try{
@@ -724,6 +800,42 @@ const getProjectUserSetup = async (projectId, userID) =>
     }
 }
 
+/**
+ * Retrieves the activity data of a specific user by their unique identifier.
+ *
+ * This asynchronous function sends a request to the server to fetch user activity based on the provided `userId`.
+ * If the request is successful, it returns the JSON response containing the user's activity data.
+ * If an error occurs (e.g., network issue or non-OK HTTP status), it logs the error to the console.
+ *
+ * @param {string} userId - The unique identifier of the user whose activity data is being fetched.
+ * @returns {Promise<Object|undefined>} A promise that resolves to the user's activity data in JSON format if successful, or undefined if an error occurs.
+ */
+const getUserActivity = async (userId) => {
+    try {
+        const response = await fetch(`${server}/getUserActivity?userId=${userId}`);
+        if (response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        return json;
+    }
+    catch (error) {
+        console.error(`Error fetching user activity:`, error);
+    }
+}
+
+/**
+ * Fetches the dependencies of a specific task by task ID.
+ *
+ * This asynchronous function sends a GET request to the server to retrieve
+ * all task dependencies associated with the provided task ID. If the request
+ * is successful, it parses and returns the JSON response containing the task
+ * dependencies. If the request fails, an error message is logged in the console.
+ *
+ * @param {string} taskId - The unique identifier of the task for which dependencies are being retrieved.
+ * @returns {Promise<Object>} A promise that resolves to the JSON object representing the task dependencies.
+ * @throws {Error} Throws an error if the response status is not ok or there is an issue during the fetch operation.
+ */
 const getTaskDependencies = async (taskId) => {
     try{
         const response = await fetch(`${server}/getTaskDependencies?taskId=${taskId}`);
@@ -740,6 +852,17 @@ const getTaskDependencies = async (taskId) => {
     }
 }
 
+/**
+ * Retrieves resources associated with a specific task by its ID.
+ *
+ * This asynchronous function sends a GET request to the server to fetch the task resources.
+ * If the server responds successfully, the resources are returned as a JSON object.
+ * In case of an error during the fetch operation or if the response is not OK,
+ * the error is logged to the console.
+ *
+ * @param {string} taskId - The unique identifier of the task for which resources are being retrieved.
+ * @returns {Promise<Object|undefined>} A promise that resolves to the retrieved task resources as a JSON object, or `undefined` if an error occurs.
+ */
 const getTaskResources = async (taskId) => {
     try{
         const response = await fetch(`${server}/getTaskResources?taskId=${taskId}`);
@@ -752,5 +875,34 @@ const getTaskResources = async (taskId) => {
     }
     catch(error){
         console.error(`Error fetching task resources:`, error);
+    }
+}
+
+/**
+ * Asynchronously retrieves a list of all user names from the server.
+ *
+ * This function sends a GET request to the server's "getAllUserNames" endpoint and
+ * returns the parsed JSON response, which is expected to contain the list of user names.
+ * If the server responds with an error status code or if the request fails, the
+ * error is logged to the console.
+ *
+ * @async
+ * @function
+ * @returns {Promise<Object|undefined>} A promise that resolves to the parsed JSON
+ * response containing the list of user names if the request is successful, or
+ * `undefined` if an error occurs.
+ */
+const getAllUserNames = async () => {
+    try{
+        const response = await fetch(`${server}/getAllUserNames`);
+        if(!response.ok)
+        {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        return json;
+    }
+    catch(error){
+        console.error(`Error fetching all user names:`, error);
     }
 }

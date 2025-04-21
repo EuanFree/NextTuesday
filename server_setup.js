@@ -39,7 +39,8 @@ const { executeSQL,
     getTaskResources,
     updateTaskResourceAssociation,
     updateTaskCollapsed,
-    updateTaskDependencies
+    updateTaskDependencies,
+    getAllUserNames, getUserActivity
 
 } = require('./seaviewConnection');
 
@@ -101,6 +102,25 @@ app.get('/executeSQL', async (req, res) => {
     }
 });
 
+app.get('/getResourceIdByUsername', async (req, res) => {
+    try{
+        const userId = await getResourceID(username);
+        res.json(userId);
+    } catch (error) {
+        console.error('Error getting resource ID by username:', error);
+        res.status(500).send('An error occurred while getting the resource ID by username.');
+    }
+})
+
+app.get('/getUserActivity'), async (req, res) => {
+    try{
+        const userActivity = await getUserActivity(userId);
+        res.json(userActivity);
+    } catch (error) {
+        console.error('Error getting user activity:', error);
+        res.status(500).send('An error occurred while getting the user activity.');
+    }
+}
 
 // Endpoint to get user ID by username
 app.get('/getUserId', async (req, res) => {
@@ -597,4 +617,14 @@ app.get('/updateTaskCollapsed', async (req, res) => {
       console.log('taskId: ', taskId, ', userId: ', userId, ', collapsed: ', collapsed);
       res.status(500).send('An error occurred while updating the task collapse.');
   }
-})
+});
+
+app.get('/getAllUserNames', async (req, res) => {
+  try{
+      const userNames = await getAllUserNames();
+      res.json(userNames);
+  } catch (error) {
+      console.error('Error getting all user names:', error);
+      res.status(500).send('An error occurred while getting all user names.');
+  }
+});

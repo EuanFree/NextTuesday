@@ -1385,6 +1385,43 @@ async function getTaskResources(taskID) {
     }
 }
 
+async function getAllUserNames()
+{
+    const query = `SELECT DISTINCT username FROM seaview.resources WHERE resource_type = 'PERSON'`;
+    try
+    {
+        const result = await executeSQL(query);
+        if (result.rows.length === 0) {
+            throw new Error(`No users found.`);
+        }
+        return result.rows;
+    }
+    catch(error)
+    {
+        console.error("Error getting all user names:", error);
+        throw error;
+    }
+}
+
+
+async function getUserActivity(userId)
+{
+    const query = `SELECT * FROM seaview.user_activity WHERE user_id = ${userId}`;
+    try
+    {
+        const result = await executeSQL(query);
+        if (result.rows.length === 0) {
+            throw new Error(`No users found.`);
+        }
+        return result.rows;
+    }
+    catch(error)
+    {
+        console.error("Error getting all user names:", error);
+        throw error;
+    }
+}
+
 //Export functions
 module.exports = {
     addPredecessorToTask,
@@ -1424,7 +1461,9 @@ module.exports = {
     updateTaskResourceAssociation,
     updateTaskDependencies,
     updateTaskCollapsed,
-    getTaskResources
+    getTaskResources,
+    getAllUserNames,
+    getUserActivity,
 }
 
 
