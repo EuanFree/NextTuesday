@@ -537,15 +537,18 @@ async function updateTaskResourceAssociation(taskResourceAssociation) {
 
 
 /**
- * Updates the task dependencies in the 'seaview.task_dependencies' table.
- * Removes rows that are not represented in the provided 'predecessors' array
- * and adds rows for new dependencies.
+ * Updates the dependencies for a specific task by synchronizing the database records
+ * to match the provided list of predecessor task IDs.
  *
- * @param {number} taskID - The ID of the task (successor).
- * @param {Array<number>} predecessors - An array of task IDs (predecessors) to be assigned to the task.
- * @returns {Promise<void>} A promise that resolves once the operation is complete.
+ * @param {number} taskID - The ID of the task whose dependencies are to be updated.
+ * @param {string} predecessors - A comma-separated string of predecessor task IDs.
+ *                                These represent the updated dependencies for the task.
+ * @return {Promise<void>} A promise that resolves when the operation is completed,
+ *                         or rejects with an error if an issue occurs.
  */
 async function updateTaskDependencies(taskID, predecessors) {
+    // Convert the comma-separated string of predecessors to an array
+    predecessors = predecessors.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
     try {
         // Step 1: Retrieve all existing dependencies for the task
         const existingDependenciesQuery = `
@@ -580,6 +583,11 @@ async function updateTaskDependencies(taskID, predecessors) {
         }
 
         console.log(`Task dependencies for task ID ${taskID} successfully updated.`);
+        return {
+            taskId: taskID,
+            removedDependencies: dependenciesToRemove,
+            addedDependencies: dependenciesToAdd
+        };
     } catch (error) {
         console.error("Error updating task dependencies:", error);
         throw error;
@@ -1206,10 +1214,12 @@ async function countTaskAncestors(taskID) {
 async function getCombinedProjectTaskDetails(projectID, userID, activeOnly=true) {
     const activeFilter = activeOnly ? "AND t.is_active = true" : "";
 
-    const combinedQuery = `WITH tasks_for_project AS (
-    SELECT *
-    FROM seaview.tasks t
-    WHERE project_id = $1 ${activeFilter} ), insert_guptvo AS (
+    const combinedQuery = `WITH tasks_for_project AS (SELECT *
+                                                      FROM seaview.tasks t
+                                                      WHERE project_id = $1
+                               ${activeFilter}
+                               )
+                              , insert_guptvo AS (
                            INSERT
                            INTO seaview.gantt_user_project_tasks_view_options (project_id, task_id, user_id)
                            SELECT $1, t.id, $2
@@ -1232,19 +1242,32 @@ async function getCombinedProjectTaskDetails(projectID, userID, activeOnly=true)
                            SELECT task_id, MAX (level) AS hierarchy_level
                            FROM hierarchy_cte
                            GROUP BY task_id
-                               ),
-                               final_combination AS (
-                           SELECT t.*, th.hierarchy_level, guptvo.collapsed, ptl.line_number
+                               ), final_combination AS (
+                           SELECT
+                               t.*, th.hierarchy_level, guptvo.collapsed, ptl.line_number, res.resources, dep.predecessors, dep.lags
                            FROM tasks_for_project t
                                LEFT JOIN task_hierarchy th
                            ON t.id = th.task_id
                                LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
                                ON t.id = guptvo.task_id AND guptvo.user_id = $2
                                LEFT JOIN (
-                                   SELECT task_id, line_number 
-                                   FROM seaview.project_task_line 
-                                   WHERE project_id = $1
-                               ) ptl ON t.id = ptl.task_id
+                               SELECT task_id, line_number
+                               FROM seaview.project_task_line
+                               WHERE project_id = $1
+                               ) ptl
+                               ON t.id = ptl.task_id
+                               LEFT JOIN (
+                               SELECT task_id AS resTaskID, array_agg(resource_id) AS resources
+                               FROM seaview.task_resource_association
+                               GROUP BY task_id
+                               ) res
+                               ON t.id = res.resTaskID
+                               LEFT JOIN (
+                               SELECT successor_id, array_agg(lag) AS lags, array_agg(predecessor_id) AS predecessors 
+                               FROM seaview.task_dependencies
+                               GROUP BY successor_id
+                               ) dep
+                               ON t.id = dep.successor_id
                                )
     SELECT *
     FROM final_combination
@@ -1278,10 +1301,9 @@ async function getCombinedProjectTaskDetails(projectID, userID, activeOnly=true)
 async function getCombinedTaskDetails(taskID, userID, activeOnly=true) {
     const activeFilter = activeOnly ? "AND t.is_active = true" : "";
 
-    const combinedQuery = `WITH tasks_for_project AS (
-    SELECT *
-    FROM seaview.tasks t
-    WHERE id = $1 ${activeFilter} ), insert_guptvo AS (
+    const combinedQuery = `WITH tasks_for_project AS (SELECT *
+                                                      FROM seaview.tasks t
+                                                      WHERE id = $1 ${activeFilter} ), insert_guptvo AS (
                            INSERT
                            INTO seaview.gantt_user_project_tasks_view_options (project_id, task_id, user_id)
                            SELECT t.project_id, t.id, $2
@@ -1306,16 +1328,26 @@ async function getCombinedTaskDetails(taskID, userID, activeOnly=true) {
                            GROUP BY task_id
                                ),
                                final_combination AS (
-                           SELECT t.*, th.hierarchy_level, guptvo.collapsed, ptl.line_number
+                           SELECT t.*, th.hierarchy_level, guptvo.collapsed, ptl.line_number, res.resources, dep.predecessors, dep.lags
                            FROM tasks_for_project t
                                LEFT JOIN task_hierarchy th
                            ON t.id = th.task_id
                                LEFT JOIN seaview.gantt_user_project_tasks_view_options guptvo
                                ON t.id = guptvo.task_id AND guptvo.user_id = $2
                                LEFT JOIN (
-                                   SELECT task_id, line_number 
-                                   FROM seaview.project_task_line 
+                               SELECT task_id, line_number
+                               FROM seaview.project_task_line
                                ) ptl ON t.id = ptl.task_id
+                               LEFT JOIN (
+                               SELECT task_id AS resTaskID, array_agg(resource_id) AS resources
+                               FROM seaview.task_resource_association
+                               GROUP BY task_id
+                               ) res ON t.id = res.resTaskID
+                               LEFT JOIN (
+                               SELECT successor_id, array_agg(predecessor_id) AS predecessors, array_agg(lag) AS lags
+                               FROM seaview.task_dependencies
+                               GROUP BY successor_id
+                               ) dep ON t.id = dep.successor_id
                                )
     SELECT *
     FROM final_combination
@@ -1422,6 +1454,38 @@ async function getUserActivity(userId)
     }
 }
 
+
+async function getAllUserTasks(userId)
+{
+    // const query = `SELECT * FROM seaview.tasks WHERE user_id = ${userId}`;
+    const query = `
+        SELECT * FROM seaview.task_resource_association tra
+          LEFT JOIN (SELECT id AS tskID, title, status, project_id, start_date, end_Date, duration, progress, parent_id, budget, spend FROM seaview.tasks WHERE is_active = true) t ON tra.task_id = t.tskID
+          LEFT JOIN (SELECT id AS prjID, title AS prjTitle, owner_id AS prjOwnerID, programme_id AS prjProgID, portfolio_id AS prjPortID FROM seaview.projects) p ON t.project_id = p.prjID
+          LEFT JOIN (SELECT id AS progID, title AS progTitle, owner_id AS progOwnerID, portfolio_id AS progPortID FROM seaview.programmes) prog ON p.prjProgID = prog.progID
+          LEFT JOIN (SELECT id AS portID, title AS portTitle, owner_id AS portOwnerID, goal FROM seaview.portfolios) port ON (progPortID = port.portID OR prjPortID = port.portID)
+          LEFT JOIN (SELECT task_id AS resTaskID, array_agg(resource_id) AS resources
+                     FROM seaview.task_resource_association
+                     GROUP BY task_id) res ON t.tskID = res.resTaskID
+          LEFT JOIN (SELECT successor_id, array_agg(predecessor_id) AS predecessors
+                     FROM seaview.task_dependencies
+                     GROUP BY successor_id) dep ON t.tskID = dep.successor_id
+        WHERE tra.resource_id = ${userId}`;
+    // console.log(query);
+    try
+    {
+        const result = await executeSQL(query);
+        if (result.rows.length === 0) {
+            throw new Error(`No users found.`);
+        }
+        return result.rows;
+    }catch(error)
+    {
+        console.error("Error getting all user tasks:", error);
+        throw error;
+    }
+}
+
 //Export functions
 module.exports = {
     addPredecessorToTask,
@@ -1464,6 +1528,7 @@ module.exports = {
     getTaskResources,
     getAllUserNames,
     getUserActivity,
+    getAllUserTasks,
 }
 
 

@@ -130,6 +130,17 @@ function submitInBlack(formId, actionHref, w, h) {
 
 
 var __popups = [];
+/**
+ * Creates and displays a modal popup with customizable dimensions, styles, and behaviors.
+ *
+ * @param {number|string} width - The width of the modal popup. Can be a number (in pixels) or a percentage string (e.g., "80%").
+ * @param {number|string} height - The height of the modal popup. Can be a number (in pixels) or a percentage string (e.g., "80%").
+ * @param {function} [onCloseCallBack] - Optional callback function to be executed when the modal popup is closed.
+ * @param {string} [cssClass] - Optional CSS class to apply custom styles to the modal popup.
+ * @param {jQuery|HTMLElement} [element] - Optional DOM element after which the popup is appended. If not provided, the popup is appended to the body.
+ * @param {Window} [popupOpener] - Optional window reference from which the popup is opened. Defaults to the current `window` if not provided.
+ * @return {jQuery} A jQuery object representing the internal content container of the modal popup.
+ */
 function createModalPopup(width, height, onCloseCallBack, cssClass, element, popupOpener) {
   //console.debug("createModalPopup");
 

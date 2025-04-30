@@ -41,7 +41,18 @@ function createDebouncedCallback(callback, delay = 200) {
   let timeout;
 
   return function (change) {
-    changes.push(change);
+
+    // Check if the provided change already exists in the changes array
+    const exists = changes.some(item =>
+        item.id === change.id &&
+        item.property === change.property &&
+        item.oldValue === change.oldValue &&
+        item.newValue === change.newValue
+    );
+    if (!exists) {
+      changes.push(change);
+    }
+    // changes.push(change);
     clearTimeout(timeout);
     timeout = setTimeout(() => {
       callback(changes);
@@ -49,6 +60,8 @@ function createDebouncedCallback(callback, delay = 200) {
     }, delay);
   };
 }
+
+
 
 function createShallowProxy(target, onChangeCallback) {
   const debouncedCallback = createDebouncedCallback(onChangeCallback, 200);
@@ -70,6 +83,14 @@ function createShallowProxy(target, onChangeCallback) {
 
     set(obj, prop, value)
     {
+      /* Don't add changes to the call back if the track changes value is false
+       */
+      if (obj.trackChanges === false)
+      {
+        obj[prop] = value;
+        return true;
+
+      }
       // console.log("set", obj, prop, value);
       if (monitoredKeys.has(prop))
       {
@@ -142,6 +163,7 @@ function createShallowProxy(target, onChangeCallback) {
                     // console.log("Change Details:", changes);
                     if (typeof onChangeCallback === "function") {
                       Object.entries(changes).forEach(([property, changeDetails]) => {
+                        
                         debouncedCallback({
                           id: obj.id,
                           property: property,
@@ -177,10 +199,6 @@ function createShallowProxy(target, onChangeCallback) {
       return true;
     },
 
-    // get(obj, prop) {
-    //   const value = obj[prop];
-    //   return typeof value === "function" ? value.bind(obj) : value;
-    // }
 
     get(obj, prop) {
       const value = obj[prop];
@@ -360,6 +378,8 @@ function Task(id, name, code, level, start, end, duration, collapsed) {
   this.ganttElement; //gantt html element
   this.master;
 
+  // Tracking changes token inside of task
+  this.trackChanges = false;
 
   this.assigs = [];
 }

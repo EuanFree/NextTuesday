@@ -590,7 +590,8 @@ select {
   border: 1px solid #91B4B7;
   padding: 4px;
   font-size: 16px;
-  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  font-family: "League Spartan","HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  /*font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;*/
 }
 
 .formElements {
@@ -602,7 +603,8 @@ select {
   -webkit-border-radius: 3px;
   -o-border-radius: 3px;
   border-radius: 3px;
-  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  font-family: "League Spartan","HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  /*font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;*/
 }
 
 .formElementsError {
@@ -623,15 +625,17 @@ span#FLD_LOGIN_NAMEerror, span#FLD_PWDerror {
 }
 
 input {
-  background-color: white;
+  background-color: rgba(255, 255, 255, 0.8);
   padding: 4px;
-  font-size: 16px;
-  border: 1px solid #91B4B7;
-  -moz-border-radius: 3px;
+  /*font-size: 16px;*/
+  border: none;
+  box-shadow: 2px 2px 0 0 rgba(175, 175, 175, 0.5);
+  /*-moz-border-radius: 3px;
   -webkit-border-radius: 3px;
   -o-border-radius: 3px;
-  border-radius: 3px;
-  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  /*border-radius: 3px;*/
+  font-family: "League Spartan","HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  /*font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;*/
 }
 
 .confirmBox {
@@ -797,7 +801,7 @@ iframe#bwinPopup {
 
 .modalPopup .bwinPopupd{
   position: relative;
-  box-shadow: 0 0 0 4px rgba(46, 186, 255, 0.3);
+  box-shadow: 3px 3px 0 0 rgba(133, 140, 142,0.4);
   border: 1px solid rgba(127, 127, 127, 0.3);
   background-color:#fff;
   margin:auto;
@@ -840,3 +844,23 @@ iframe#bwinPopup {
   left: -5000px;
 }
 
+/* -------------------------------------- PERSONAL TASK LIST-------------------------*/
+
+.ptlCell {
+  width: fit-content;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
+}
+
+.ptlCell .ptlInput{
+  width: 30px;
+}
+
+.ptlTable{
+  width: fit-content;
+}
+
+.ptlCell.gotoArrow {
+  cursor: pointer;
+}

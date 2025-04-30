@@ -40,7 +40,7 @@ const { executeSQL,
     updateTaskResourceAssociation,
     updateTaskCollapsed,
     updateTaskDependencies,
-    getAllUserNames, getUserActivity
+    getAllUserNames, getUserActivity, getAllUserTasks
 
 } = require('./seaviewConnection');
 
@@ -627,4 +627,16 @@ app.get('/getAllUserNames', async (req, res) => {
       console.error('Error getting all user names:', error);
       res.status(500).send('An error occurred while getting all user names.');
   }
+});
+
+app.get('/getAllUsersTasks', async (req, res) => {
+    const userId = req.query.userId;
+    try{
+        const usersTasks = await getAllUserTasks(userId);
+        res.json(usersTasks);
+    }
+    catch (error) {
+        console.error('Error getting all users tasks:', error);
+        res.status(500).send('An error occurred while getting all users tasks.');
+    }
 });

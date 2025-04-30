@@ -52,10 +52,14 @@
   <script src="ganttZoom.js"></script>
   <script src="ganttGridEditor.js"></script>
   <script src="ganttMaster.js"></script>
-
+    <script src="nextTuesdayElements.js"></script>
 
   <!--<script src="libs/profiling.js"></script>-->
   <!--<script type="text/javascript" src="ganttTestSuite.js"></script>-->
+
+
+
+
 </head>
 <body style="background-color: #fff;">
 
@@ -65,7 +69,7 @@
     <div>
         <button>Option 1</button>
         <button>Option 2</button>
-        <button>Option 3</button>
+        <button id="personalTaskListLaunchButton" onclick="generateUserPersonalTaskList()">Personal Task List</button>
     </div>
 </div>
 
@@ -84,6 +88,16 @@
              style="padding:0px; overflow-y:auto; overflow-x:hidden;border:1px solid #e5e5e5;position:relative;margin:0 5px"></div>
     </div>
 </div>
+
+<!-- New item to be checked out and ensure it works
+<div id="hoverPopupTemplate"
+     style="display: none; position: absolute; background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 999; max-width: 300px; pointer-events: none;">
+    <h3 id="popupTitle" style="margin-top: 0; font-size: 18px;">Item Title</h3>
+    <p id="popupDetails" style="margin: 5px 0; color: #555;">Details about the item will go here.</p>
+</div>
+
+-->
+
 
 <div id="userInteractionTemplates" style="display:none;">
     <div class="__template__" type="USERNAME_POPUP">
@@ -107,10 +121,399 @@
         -->
 
     </div>
+
+    <!-- Basics for the dependency editor -->
+
+        <div class="__template__" type="DEPENDENCY_EDITOR">
+            <!--
+                <div class="dependencyEditor" style="padding: 5px;">
+
+                    <h2>Task Dependencies</h2>
+                    <div style="max-height: calc(10 * 24px); overflow-y: auto;">
+                      <table cellspacing="1" cellpadding="0" width="100%" id="selectedTaskList">
+                        <tr>
+                          <th style="width:50px;">Task</th>
+                          <th style="width:200px;">Title</th>
+                          <th style="width:30px;cursor: pointer" id="addDependency"><span class="teamworkIcon" style="cursor: pointer">d</span></th>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <h2 style="margin-top: 20px;">Available Tasks</h2>
+                    <div style="max-height: calc(10 * 24px); overflow-y: auto;">
+                      <table cellspacing="1" cellpadding="0" width="100%" id="availableTaskList">
+                        <tr>
+                          <th style="width:50px;">Task</th>
+                          <th style="width:200px;">Title</th>
+                          <th style="width:30px;cursor: pointer" id="addDependency"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <div style="text-align: right; padding-top: 20px"><button id="depSaveButton" class="button big">Save</button></div>
+                </div>
+            -->
+        </div>
+
+        <!-- Populate dynamically -->
+        <div class="__template__" type="DEPENDENCY_ROW">
+            <!--
+                <tr depId="(#=obj.id#)" class="depRow">
+                    <td>
+                       <span>(#=obj.id#)</span>
+                    </td>
+                    <td>
+                        <span>(#=obj.title#)</span>
+                    </td>
+                    <td align="center" style="cursor: pointer">
+                        <span class="teamworkIcon delDep del" style="cursor: pointer">d</span>
+                    </td>
+                </tr>
+            -->
+        </div>
+
+    <!-- Populate dynamically -->
+    <div class="__template__" type="ADD_DEPENDENCY_ROW">
+        <!--
+            <tr depId="(#=obj.id#)" class="depRow">
+                <td>
+                   <span>(#=obj.id#)</span>
+                </td>
+                <td>
+                    <span>(#=obj.title#)</span>
+                </td>
+                <td align="center" style="cursor: pointer">
+                    <span class="teamworkIcon addDep add" style="cursor: pointer">+</span>
+                </td>
+            </tr>
+        -->
+    </div>
+
+    <!-- Personal Task List Pop Up -->
+    <div class="__template__" type="PERSONAL_TASK_LIST_POPUP">
+        <!--
+            <div id="personalTaskListPopUp">
+                <h2><span> </span> Active Task List </h2>
+                <table class="ptlTable" id="personalTaskList">
+                    <thead>
+                        <tr>
+                            <th class="ptlCell">Goal</th>
+                            <th class="ptlCell">Programme</th>
+                            <th class="ptlCell">Project</th>
+                            <th class="ptlCell">Task ID</th>
+                            <th class="ptlCell">Title</th>
+                            <th class="ptlCell">Status</th>
+                            <th class="ptlCell">Start Date</th>
+                            <th class="ptlCell">End Date</th>
+                            <th class="ptlCell">Duration</th>
+                            <th class="ptlCell">Progress</th>
+                            <th class="ptlCell">Go To</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+        -->
+    </div>
+
+<!--    TODO: Sort out the arrow and the various connection - replicate the status from the task editor-->
+    <div class="__template__" type="PERSONAL_TASK_LIST_ROW">
+        <!--
+            <tr class="personalTaskListRow">
+                <td class="ptlCell goal" ><span>(#=obj.goal#)</span></td>
+                <td class="ptlCell progTitle"><span>(#=obj.progtitle#)</span></td>
+                <td class="ptlCell prjTitle"><span>(#=obj.prjtitle#)</span></td>
+                <td class="ptlCell taskID"><span>(#=obj.tskid#)</span></td>
+                <td class="ptlCell taskTitle"><span>(#=obj.title#)</span></td>
+                <td class="ptlCell taskStatusCell" align="center"><div class="taskStatus cvcColorSquare" status="(#=obj.status#)"></div></td>
+                <td class="ptlCell taskStartDate"><span>(#=obj.start_date#)</span></td>
+                <td class="ptlCell taskEndDate"><span>(#=obj.end_date#)</span></td>
+                <td class="ptlCell taskDuration"><input type="text" name="duration" autocomplete="off" class="ptlInput" value="(#=obj.duration#)"></td>
+                <td class="ptlCell taskProgress"><input type="text" name="progress" class="ptlInput validated" entrytype="PERCENTILE" autocomplete="off" value="(#=obj.progress#)"></td>
+                <td class="ptlCell gotoArrow"><span>Arrow</span></td>
+            </tr>
+        -->
+    </div>
+
 </div>
 <!-- style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1000;" -->
 
 <script>
+
+
+    async function generateUserPersonalTaskList()
+    {
+        $("#userInteractionTemplates").loadTemplates();
+        $("#gantEditorTemplates").loadTemplates();
+
+
+        const resourcesFromDB = await getResourcesList();
+        let localID = 0;
+        let resources = [];
+        for (let resource of resourcesFromDB.rows) {
+            if (!resources[localID]) {
+                // If it doesn't exist, create a new object at that index.
+                resources[localID] = {};
+            }
+            resources[localID].name = resource.name;
+            resources[localID].id = Number(resource.id);
+            resources[localID].resourceType = resource.resource_type;
+            resources[localID].resourceDepartment = resource.resource_department;
+            resources[localID].email = resource.email;
+            resources[localID].username = resource.username;
+            resources[localID].isActive = resource.is_active;
+            resources[localID].workPattern = [resource.works_on_monday,
+                resource.works_on_tuesday,
+                resource.works_on_wednesday,
+                resource.works_on_thursday,
+                resource.works_on_friday,
+                resource.works_on_saturday,
+                resource.works_on_sunday];
+            localID++;
+        }
+
+
+        const rolesFromDB = await getEnumerationTable("resourcetype");
+        roles = [];
+        for (let role of rolesFromDB) {
+            // console.log('role: ' + role.enumlabel);
+            roles.push({"name":role.enumlabel,"id":role.enumsortorder});
+        }
+
+
+        let userId = -1;
+        userId = getCookie("SVNT_GANTT_USERID");
+        const personalTaskList = await getAllUsersTask(userId);
+        
+        /* TODO: Need to increase the intelligence of this but it will do for the time being */
+        personalTaskList.forEach(task => {
+            const adjustForBST = (dateString) => {
+                if (!dateString) return dateString; // Ensure the date string exists
+                const date = new Date(dateString);
+
+                // Check if the date is within British Summer Time (BST)
+                // BST runs from the last Sunday in March to the last Sunday in October
+                const startBST = new Date(date.getFullYear(), 2, 31); // March 31st
+                startBST.setDate(31 - startBST.getDay()); // Adjust to the last Sunday in March
+
+                const endBST = new Date(date.getFullYear(), 9, 31); // October 31st
+                endBST.setDate(31 - endBST.getDay()); // Adjust to the last Sunday in October
+
+                const isBST = date >= startBST && date <= endBST;
+
+                // Adjust for BST if in the range
+                if (isBST) {
+                    date.setHours(date.getHours() + 1); // Adjust for GMT+1
+                }
+
+                return date.toISOString().split('T')[0]; // Return only the 'YYYY-MM-DD' part
+            };
+
+            task.start_date = adjustForBST(task.start_date); // Adjust and format start_date
+            task.end_date = adjustForBST(task.end_date);     // Adjust and format end_date
+        });
+        
+        const personalTaskListPopUp = $.JST.createFromTemplate(personalTaskList, "PERSONAL_TASK_LIST_POPUP");
+
+        var factory = new TaskFactory();
+        var personalTasksArray = [];
+
+
+        
+        personalTaskList.forEach(task => {
+            const taskRow = $.JST.createFromTemplate(task, "PERSONAL_TASK_LIST_ROW");
+
+            /* create partially filled task - this should work as the task update should only react to changes */
+            const t = factory.build(
+                task.tskid,
+                task.title,
+                'misc',
+                -1,
+                task.start_date,
+                task.duration,
+                false,
+                handleTaskChanges
+            );
+
+            dependencies = task.predecessors;
+            // Process dependencies
+            if (dependencies && dependencies[0] !== -1)
+            {
+                let deps = '';
+                for (let j = 0; j < dependencies.length; j++) {
+                    deps += dependencies[j] +
+                        (j === dependencies.length - 1 ? '' : ',');
+                }
+                t.depends = deps;
+            } else {
+                t.depends = '';
+            }
+
+            t.assigs = [];
+            if(task.resources.length > 0 && roles.length > 0)
+            {
+                for(let j = 0; j < task.resources.length; j++)
+                {
+                    const resourceID = task.resources[j];
+
+
+                    // Look up the resource type from this.resources based on the taskResource id - 1
+                    const resourceType = resources[resourceID - 1].resourceType;
+
+                    if (resourceType)
+                    {
+                        // Search the this.roles array for a role matching the resource type
+                        const role = roles.find(role => role.name === resourceType);
+
+                        if (role)
+                        {
+                            const roleID = role.id;
+
+                            const id = 'resId_' + resourceID + '_roleId_' + role.id;
+                            const effort = t.duration * 3600000 * 24;
+                            const assig = {resourceId: resourceID, id: id, roleId: roleID, effort: effort};
+                            t.assigs.push(assig);
+                        } else
+                        {
+                            console.warn(`No role found for resource type: ${resourceType}`);
+                        }
+                    } else
+                    {
+                        console.warn(`No resource type found for resource ID: ${resourceID}`);
+                    }
+                }
+            }
+
+
+            t.status = task.status;
+            t.progress = task.progress;
+
+            personalTasksArray.push(t);
+
+            // Filter out tasks with status = CANCELLED, COMPLETE, or RETIRED
+            if (!["CANCELLED", "COMPLETE", "RETIRED", "DEFERRED"].includes(task.status)) {
+                personalTaskListPopUp.find("tbody").append(taskRow);
+            }
+
+
+            // Change status
+            taskRow.find(".taskStatusCell").click(function (event) {
+                
+                
+                event.stopPropagation(); // Prevent event from bubbling up
+                event.preventDefault();  // Prevent any default behavior (if applied)
+                const el = $(this);
+                const tr = el.parent();
+                const taskId = tr.find("span").eq(3).text(); // Get Task ID from the 4th column
+                const changer = $.JST.createFromTemplate({}, "CHANGE_STATUS"); // Assuming CHANGE_STATUS template exists
+
+
+                const taskFromArray = personalTasksArray.find(t => t.id === task.tskid);
+                if (taskFromArray) {
+                    console.log("Found Task:", taskFromArray);
+                } else {
+                    console.warn("Task not found in personalTasksArray with id:", task.tskid);
+                }
+                
+                changer.find("[status=" + task.status + "]").addClass("selected");
+                // console.log("Selected:", changer.find("[status=" + task.status + "]"));
+                changer.find(".taskStatus").click(function (e) {
+                    e.stopPropagation();
+                    const newStatus = $(this).attr("status");
+                    changer.remove();
+                    // Logic to update the status in the master task list or database
+                    // console.log(`Task ID: ${taskId} - Changing status to: ${newStatus}`);
+                    if(el.children.length > 0)
+                    {
+                        const taskStatusCirc = $(el.children()[0]);
+                        console.log("Task Status Circ:", taskStatusCirc);
+                        taskStatusCirc.attr("status",newStatus);
+                        taskFromArray.status = newStatus; /* this should trigger the task update function */
+                    }
+                    else
+                    {
+                        el.attr("status", newStatus); // Update the UI with the new status
+                    }
+                });
+                el.oneTime(3000, "hideChanger", function () {
+                    changer.remove();
+                });
+
+                // Position the changer centered on the mouse's position
+                const mouseX = event.pageX;
+                const mouseY = event.pageY;
+
+                changer.css({
+                    position: "absolute",
+                    top: `${mouseY - modal.offset().top - changer.outerHeight() / 2}px`,
+                    left: `${mouseX - modal.offset().left - changer.outerWidth() / 2}px`,
+                    zIndex: 2100 // Ensures it appears above other elements
+                });
+                personalTaskListPopUp.append(changer);
+            });
+
+
+// Add event listeners for inputs in the personalTaskListRow
+        taskRow.find("input").on("input", function (event) {
+            const inputEl = $(this);
+            const inputName = inputEl.attr("name");
+            const inputValue = inputEl.val();
+            console.log(`Input changed - Name: ${inputName}, Value: ${inputValue}`);
+
+            // Update the corresponding task in the personalTasksArray
+            const taskFromArray = personalTasksArray.find(t => t.id === task.tskid);
+            if (taskFromArray) {
+                taskFromArray[inputName] = inputValue; // Dynamically update the corresponding field
+                // handleTaskChanges(taskFromArray); // Call the update handler for the task
+            } else {
+                console.warn("Task not found in personalTasksArray with id:", task.tskid);
+            }
+        });
+
+// Add event listener for focusout (blur) to validate and save input changes
+        taskRow.find("input").on("focusout", function () {
+            const inputEl = $(this);
+            const inputName = inputEl.attr("name");
+            const inputValue = inputEl.val();
+            console.log(`Input focusout - Name: ${inputName}, Value: ${inputValue}`);
+
+            if (!inputValue) {
+                console.warn(`Input validation failed for field: ${inputName}`);
+                inputEl.addClass("input-error"); // Add visual indicator for error
+            } else {
+                inputEl.removeClass("input-error"); // Remove error styling
+            }
+        });
+        
+
+        // Add event listener for the gotoArrow cell in the row
+        taskRow.find(".gotoArrow").click(function (event) {
+            event.stopPropagation(); // Prevent event from propagating to other handlers
+            event.preventDefault();  // Prevent any default behavior
+            console.log("Go To Arrow clicked.");
+            const gotoEl = $(this);
+            const taskRowEl = gotoEl.closest("tr"); // Locate the parent row of the clicked cell
+            const taskId = taskRowEl.find("span").eq(3).text(); // Assuming Task ID is in the 4th column
+            const task = personalTaskList.find(t => Number(t.task_id) === Number(taskId)); // Look up the task by Task ID in personalTaskList
+            const projectId = task ? task.prjid : null; // Get the project ID (prjid) from the matched task
+            console.log(`Project ID selected: ${projectId}`);
+
+
+            if (modal) {
+                $(modal.children()[0]).trigger("click");
+            }
+
+            // Expand menu to show the correct project
+            expandMenuToShowProject(projectId);
+
+            // Call ge.loadprojectfromdb with project ID and user ID
+            ge.loadProjectFromDatabase(projectId, userId);
+        });
+    });
+
+        const modal = createModalPopup(window.innerWidth - 200,800).append(personalTaskListPopUp);
+    }
+
 
     function attachAutoComplete(availableUserNames) {
         const $inputField = $(".username-input");
@@ -217,6 +620,7 @@
             });
 
         }
+        
 // Check for the SVNTUserID cookie
         let userID = -1;
         userID = getCookie("SVNT_GANTT_USERID");
@@ -252,291 +656,10 @@
 
         const sideMenu = $("#menuContainer");
 
-        // // Function to update Gantt view for a project
-        // const updateGanttForProject = (projectId, userId) => {
-        //     console.log(`Loading project ${projectId} into Gantt`);
-        //     ganttMaster.loadProjectFromDatabase(projectId,userId);
-        //     ganttMaster.loadTasksFromPostgreSQL(projectId);// Example function from ganttMaster
-        // };
 
-        // Function to create hierarchical menu
-        const createHierarchicalMenu = async () => {
-            try
-            {
-                const portfolios = await getPortfolioListFromServer(); // Fetch portfolios
-                const portfoliosContents = [];
-                for(let i = 0; i < portfolios.length; i++)
-                {
-                    const portfolioContents = {'programmes':[],'projects':[],'id':portfolios[i].id, "title": portfolios[i].title};
-                    const pContents = await getPortfolioContentsFromServer(portfolios[i].id);
-                    for(let j = 0; j < pContents.length; j++)
-                    {
-                        let progCt = 0;
-                        if(pContents[j].programme_id != null)
-                        {
-                            portfolioContents.programmes.push({"id": pContents[j].programme_id, "title":pContents[j].title,"projects": []});
-                            progCt = portfolioContents.programmes.length - 1;
-                            const progProjs =  await getProgrammeContentsFromServer(pContents[j].programme_id);
-                            for(let k = 0; k < progProjs.length; k++)
-                            {
-                                portfolioContents.programmes[progCt].projects.push({"id":progProjs[k].id,"title":progProjs[k].title});
-                            }
-                            // progCt++;
-
-                        }
-                        if(pContents[j].project_id != null)
-                        {
-                            portfolioContents.projects.push({"id":pContents[j].project_id,"title":pContents[j].title});
-                        }
-                    }
-                    portfoliosContents.push(portfolioContents);
-                    portfoliosContents[i].id = portfolios[i].id;
-                }
-                sideMenu.empty(); // Clear existing menu
-                let portfolioCt = 0;
-                portfoliosContents.forEach((portfolio) => {
-                    const portfolioDiv = $("<div>")
-                        .addClass("menuItem portfolio")
-                        .text(portfolio.title)
-                        .data('id', portfolio.id)
-                        .data('type', 'portfolio');
-
-                    // Add triangle indicator to the portfolio div
-                    const triangle = $("<span>")
-                        .addClass("triangle")
-                        .css({
-                            display: "inline-block",
-                            marginRight: "8px",
-                            width: "0",
-                            height: "0",
-                            borderLeft: "8px solid black",
-                            borderTop: "5px solid transparent",
-                            borderBottom: "5px solid transparent",
-                            borderRight: "none",
-                            verticalAlign: "middle",
-                        });
-                    portfolioDiv.prepend(triangle);
-
-                    portfolioDiv.on("click", function () {
-                        // Show portfolio details
-                        showSummaryWindow("Portfolio", portfolio.id);
-                    });
-
-                    portfolioDiv.on("dblclick", function ()
-                    {
-                        // Expand/collapse programmes under this portfolio
-                        const childProgrammes = $(this).nextUntil(".portfolio", ".programme");
-                        const childProjects = $(this).nextUntil(".portfolio", ".programme").addBack().nextUntil(".portfolio", ".portfolioProject");
-                        const visibleChildren = childProgrammes.filter(":visible");
-                        if (visibleChildren.length > 0)
-                        {
-                            // childProgrammes.slideUp();
-                            // childProjects.slideUp();
-                            $(this).nextUntil(".portfolio").slideUp();
-                            triangle.css({
-                                borderLeft: "8px solid black",
-                                borderTop: "5px solid transparent",
-                                borderBottom: "5px solid transparent",
-                                borderRight: "none",
-                            }); // Point triangle to the right
-                        }
-                        else
-                        {
-                            childProgrammes.slideDown();
-                            childProjects.slideDown();
-                            triangle.css({
-                                borderLeft: "5px solid transparent",
-                                borderRight: "5px solid transparent",
-                                borderTop: "8px solid black",
-                                borderBottom: "none",});
-                        }
-
-                        window.getSelection()?.removeAllRanges();
-                    });
-
-                    sideMenu.append(portfolioDiv);
-
-                    // Generate programmes for this portfolio
-                    if (portfolio.programmes) {
-                        const projProgs = async () => {
-                            for(let i = 0; i < portfolio.programmes.length; i++)
-                            {
-                                const progProjs =  await getProgrammeContentsFromServer(portfolio.programmes[i].id);
-                                for(let j = 0; j < progProjs.length; j++)
-                                {
-                                    portfoliosContents[portfolioCt].programmes[i].projects.push({"id":progProjs[j].id,"title":progProjs[j].title});
-                                }
-                            }
-                            return true;
-                        };
-                        portfoliosContents[portfolioCt].programmes.forEach(async (programme) => {
-                            const programmeDiv = $("<div>")
-                                .addClass("menuItem programme")
-                                .text(programme.title)
-                                .data('id', programme.id)
-                                .data('type', 'programme')
-                                .css("display", "none"); // Initially hidden
-
-                            const progTriangle = $("<span>")
-                                .addClass("triangle")
-                                .css({
-                                    display: "inline-block",
-                                    marginRight: "8px",
-                                    width: "0",
-                                    height: "0",
-                                    borderLeft: "8px solid black",
-                                    borderTop: "5px solid transparent",
-                                    borderBottom: "5px solid transparent",
-                                    borderRight: "none",
-                                    verticalAlign: "middle",
-                                });
-                            programmeDiv.prepend(progTriangle);
-
-                            programmeDiv.on("click", function () {
-                                // Show programme details
-                                showSummaryWindow("Programme", programme.id);
-                            });
-
-                            programmeDiv.on("dblclick", function () {
-                                // Expand/collapse projects under this programme
-                                const childProjects = $(this).nextUntil(".programme, .portfolio", ".programmeProject");
-                                const visibleChildren = childProjects.filter(":visible");
-                                if (visibleChildren.length > 0) {
-                                    childProjects.slideUp();
-                                    progTriangle.css({
-                                        borderLeft: "8px solid black",
-                                        borderTop: "5px solid transparent",
-                                        borderBottom: "5px solid transparent",
-                                        borderRight: "none",
-                                    }); // Point triangle to the right
-                                } else {
-                                    console.log("Child Projects: ", childProjects);
-                                    childProjects.slideDown();
-                                    progTriangle.css({
-                                        borderLeft: "5px solid transparent",
-                                        borderRight: "5px solid transparent",
-                                        borderTop: "8px solid black",
-                                        borderBottom: "none",
-                                    }); // Point triangle down
-                                }
-                                window.getSelection()?.removeAllRanges();
-                            });
-
-                            sideMenu.append(programmeDiv);
-
-                            // Generate projects for this programme
-                            if (programme.projects) {
-                                programme.projects.forEach((project) => {
-                                    const projectDiv = $("<div>")
-                                        .addClass("menuItem programmeProject")
-                                        .text(project.title)
-                                        .data('id', project.id)
-                                        .data('type', 'programmeProject')
-                                        .css("display", "none"); // Initially hidden
-
-                                    projectDiv.on("click", function () {
-                                        // Show project details
-                                        showSummaryWindow("Project", project.id);
-                                    });
-
-                                    projectDiv.on("dblclick", function () {
-                                        // Load project into Gantt
-                                        console.log("Load project into Gantt");
-                                        console.log("GE:",ge);
-                                        const projectId = project.id;
-                                        ge.loadProjectFromDatabase(projectId, userID).then(() => {
-                                            console.log(`Project ${projectId} loaded from database successfully.`);
-
-                                            ge.loadTasksFromPostgreSQL(userID, projectId).then(() => {
-                                                console.log(`Tasks for project ${projectId} loaded successfully.`);
-                                            }).catch(error => {
-                                                console.error(`Error loading tasks for project ${projectId}:`, error);
-                                            });
-                                            // Reset the background color of all other programmeProjects and portfolioProjects to default
-                                            $(".menuItem.programmeProject, .menuItem.portfolioProject").css({"background-color": "", "box-shadow": "none"});
-
-
-                                            // Add shadow effect to improved selection visibility
-                                            $(this).css({
-                                                "background-color": "#ffffff", // Change background to white
-                                                "box-shadow": "0px 4px 8px rgba(0, 0, 0, 0.2)" // Add subtle shadow
-                                            });
-                                        }).catch(error => {
-                                            console.error(`Error loading project ${projectId} from database:`, error);
-                                        });
-                                    });
-                                    sideMenu.append(projectDiv);
-                                });
-                            }
-                        });
-                    }
-
-                    // Generate projects directly under this portfolio
-                    if (portfolio.projects) {
-                        portfolio.projects.forEach((project) => {
-                            const projectDiv = $("<div>")
-                                .addClass("menuItem portfolioProject")
-                                .text(project.title)
-                                .data('id', project.id)
-                                .data('type', 'portfolioProject')
-                                .css("display", "none"); // Initially hidden
-
-                            projectDiv.on("click", function () {
-                                // Show project details
-                                showSummaryWindow("Project", project.id);
-                            });
-
-                            projectDiv.on("dblclick", function () {
-                                // Load project into Gantt
-                                // TODO: Fix this connection to the gannt window
-                                // updateGanttForProject(project.id);
-                                console.log("Load project into Gantt");
-                                console.log("GE:",ge);
-                                const projectId = project.id;
-                                ge.loadProjectFromDatabase(projectId, userID).then(() => {
-                                    console.log(`Project ${projectId} loaded from database successfully.`);
-
-                                    ge.loadTasksFromPostgreSQL(userID, projectId).then(() => {
-                                        console.log(`Tasks for project ${projectId} loaded successfully.`);
-                                    }).catch(error => {
-                                        console.error(`Error loading tasks for project ${projectId}:`, error);
-                                    });
-                                    
-
-                                    // Reset the background color of all other programmeProjects and portfolioProjects to default
-                                    $(".menuItem.programmeProject, .menuItem.portfolioProject").css({"background-color": "", "box-shadow": "none"});
-
-
-                                    // Add shadow effect to improved selection visibility
-                                    $(this).css({
-                                        "background-color": "#ffffff", // Change background to white
-                                        "box-shadow": "0px 4px 8px rgba(0, 0, 0, 0.2)" // Add subtle shadow
-                                    });
-                                    
-                                }).catch(error => {
-                                    console.error(`Error loading project ${projectId} from database:`, error);
-                                });
-                            });
-
-                            sideMenu.append(projectDiv);
-                        });
-                    }
-                    portfolioCt++;
-                });
-            } catch (error) {
-                console.error("Error creating hierarchical menu:", error);
-            }
-            // console.log(sideMenu);
-        };
-
-        // Summary window function
-        const showSummaryWindow = (type, id) => {
-            console.log(`Showing summary for ${type} with ID: ${id}`);
-            // TODO: Add logic to open and populate the summary window based on the type and ID
-        };
 
         // Initialize hierarchical menu
-        createHierarchicalMenu();
+        createHierarchicalMenu(sideMenu, userID);
     });
 </script>
 
@@ -787,6 +910,86 @@ function clearGantt() {
 }
  */
 
+
+
+function editTaskDependencies(taskId) {
+    $("#userInteractionTemplates").loadTemplates();
+
+    // Get the specific task for which dependencies are being edited
+    const task = ge.tasks.find(t => t.id === taskId);
+    if (!task) {
+        console.error("Task not found with provided ID:", taskId);
+        return;
+    }
+
+    // Create the dependency editor popup
+    const dependencyEditor = $.JST.createFromTemplate({}, "DEPENDENCY_EDITOR");
+    const availableTaskList = dependencyEditor.find("#availableTaskList");
+    const selectedTaskList = dependencyEditor.find("#selectedTaskList");
+    let dependsBuffer = task.depends;
+    updateTaskLists();
+
+    dependencyEditor.on('click', '.delDep', function (event) {
+        event.stopPropagation(); // Prevent event from bubbling up
+        event.preventDefault();  // Prevent any default behavior (if applied)
+
+        const taskIdToRemove = $(this).parent().parent().children()[0].innerText;
+        dependsBuffer = dependsBuffer.split(',').filter(id => id !== String(taskIdToRemove)).join(',');
+        updateTaskLists();
+    });
+
+    dependencyEditor.on('click', '.addDep', function (event) {
+        event.stopPropagation(); // Prevent event from bubbling up
+        event.preventDefault();  // Prevent any default behavior (if applied)
+
+        const taskIdToAdd = $(this).parent().parent().children()[0].innerText;
+        if (!dependsBuffer.split(',').includes(String(taskIdToAdd))) {
+            dependsBuffer += (dependsBuffer ? ',' : '') + taskIdToAdd;
+        }
+        updateTaskLists();
+    });
+
+    function updateTaskLists() {
+        availableTaskList.empty();
+        selectedTaskList.empty();
+
+        ge.tasks.forEach(t => {
+            if (t.id !== task.id && !task.getInferiors().includes(t)) {
+                const taskRow = $.JST.createFromTemplate({
+                    id: t.id,
+                    title: t.name,
+                    delSpan: '<span class="delDep">[Remove]</span>'
+                }, "DEPENDENCY_ROW");
+                const availTaskRow = $.JST.createFromTemplate({
+                    id: t.id,
+                    title: t.name,
+                    addSpan: '<span class="addDep">[Add]</span>'
+                }, "ADD_DEPENDENCY_ROW");
+
+                if (dependsBuffer.split(',').includes(String(t.id))) {
+                    selectedTaskList.append(taskRow);
+                } else {
+                    availableTaskList.append(availTaskRow);
+                }
+            }
+        });
+    }
+
+    // Save event for dependencies
+    dependencyEditor.find("#depSaveButton").click(function () {
+        // Update the task's dependencies
+        task.depends = dependsBuffer;
+
+        closeBlackPopup();
+        ge.redraw(); // Re-render the Gantt chart
+    });
+
+    // Open the modal popup for editing dependencies
+    const modal = createModalPopup(600, 500).append(dependencyEditor);
+}
+
+
+
 //-------------------------------------------  Open a black popup for managing resources. This is only an axample of implementation (usually resources come from server) ------------------------------------------------------
 /**
  * Handles the editing of resources within the application by creating a resource editor interface.
@@ -1028,13 +1231,16 @@ function showBaselineInfo (event,element){
       <button onclick="$('#workSpace').trigger('fullScreen.gantt');return false;" class="button textual icon" title="FULLSCREEN" id="fullscrbtn"><span class="teamworkIcon">@</span></button>
       <button onclick="ge.element.toggleClass('colorByStatus' );return false;" class="button textual icon"><span class="teamworkIcon">&sect;</span></button>
 
-    <button onclick="editResources();" class="button textual requireWrite" title="edit resources"><span class="teamworkIcon">M</span></button>
-      &nbsp; &nbsp; &nbsp; &nbsp;
+
     </div>
 
   </div>
   -->
 </div>
+
+<!--Removed from the button bar-->
+<!--    <button onclick="editResources();" class="button textual requireWrite" title="edit resources"><span class="teamworkIcon">M</span></button>-->
+<!--    &nbsp; &nbsp; &nbsp; &nbsp;-->
 
 <div class="__template__" type="TASKSEDITHEAD"><!--
   <table class="gdfTable" cellspacing="0" cellpadding="0">
@@ -1058,8 +1264,7 @@ function showBaselineInfo (event,element){
   --></div>
 
 
-<div class="__template__" type="TASKROW"><!--
-  <tr id="tid_(#=obj.id#)" taskId="(#=obj.id#)" class="taskEditRow (#=obj.isParent()?'isParent':''#) (#=obj.collapsed?'collapsed':''#)" level="(#=level#)">
+<div class="__template__" type="TASKROW"><!--  <tr id="tid_(#=obj.id#)" taskId="(#=obj.id#)" class="taskEditRow (#=obj.isParent()?'isParent':''#) (#=obj.collapsed?'collapsed':''#)" level="(#=level#)">
     <th class="gdfCell edit" align="right" style="cursor:pointer;"><span class="taskRowIndex">(#=obj.getRow()+1#)</span> <span class="teamworkIcon" style="font-size:12px;" >e</span></th>
     <td class="gdfCell noClip" align="center"><div class="taskStatus cvcColorSquare" status="(#=obj.status#)"></div></td>
     <td class="gdfCell"><input type="text" name="code" value="(#=obj.code?obj.code:''#)" placeholder="code/short name"></td>
@@ -1073,10 +1278,9 @@ function showBaselineInfo (event,element){
     <td class="gdfCell"><input type="text" name="end" value="" class="date"></td>
     <td class="gdfCell"><input type="text" name="duration" autocomplete="off" value="(#=obj.duration#)"></td>
     <td class="gdfCell"><input type="text" name="progress" class="validated" entrytype="PERCENTILE" autocomplete="off" value="(#=obj.progress?obj.progress:''#)" (#=obj.progressByWorklog?"readOnly":""#)></td>
-    <td class="gdfCell requireCanSeeDep"><input type="text" name="depends" autocomplete="off" value="(#=obj.depends#)" (#=obj.hasExternalDep?"readonly":""#)></td>
+    <td class="gdfCell requireCanSeeDep" onclick="editTaskDependencies((#=obj.id#));"><input type="text" name="depends" autocomplete="off" value="(#=obj.depends#)" (#=obj.hasExternalDep?"readonly":""#)></td>
     <td class="gdfCell taskAssigs">(#=obj.getAssigsString()#)</td>
-  </tr>
-  --></div>
+  </tr>--></div>
 
 <div class="__template__" type="TASKEMPTYROW"><!--
   <tr class="taskEditRow emptyRow" >
@@ -1217,31 +1421,38 @@ function showBaselineInfo (event,element){
 <!--    <td ><select type="select" name="roleId"  class="formElements"></select></td>-->
 <!--    <td ><input type="text" name="effort" value="(#=getMillisInHoursMinutes(obj.assig.effort)#)" size="5" class="formElements"></td>-->
 
-<div class="__template__" type="RESOURCE_EDITOR"><!--
-  <div class="resourceEditor" style="padding: 5px;">
+<div class="__template__" type="RESOURCE_EDITOR">
+    <!--
+      <div class="resourceEditor" style="padding: 5px;">
+    
+        <h2>Project team</h2>
+        <table  cellspacing="1" cellpadding="0" width="100%" id="resourcesTable">
+          <tr>
+            <th style="width:100px;">name</th>
+            <th style="width:30px;cursor: pointer" id="addResource"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+          </tr>
+        </table>
+    
+        <div style="text-align: right; padding-top: 20px"><button id="resSaveButton" class="button big">Save</button></div>
+      </div>
+  -->
+</div>
+    
 
-    <h2>Project team</h2>
-    <table  cellspacing="1" cellpadding="0" width="100%" id="resourcesTable">
-      <tr>
-        <th style="width:100px;">name</th>
-        <th style="width:30px;cursor: pointer" id="addResource"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+
+<div class="__template__" type="RESOURCE_ROW">
+    <!--
+      <tr resId="(#=obj.id#)" class="resRow" >
+        <td ><input type="text" name="name" value="(#=obj.name#)" style="width:100%;" class="formElements"></td>
+        <td align="center" style="cursor: pointer"><span class="teamworkIcon delRes del" style="cursor: pointer">d</span></td>
       </tr>
-    </table>
-
-    <div style="text-align: right; padding-top: 20px"><button id="resSaveButton" class="button big">Save</button></div>
-  </div>
-  --></div>
+  -->
+</div>
 
 
 
-<div class="__template__" type="RESOURCE_ROW"><!--
-  <tr resId="(#=obj.id#)" class="resRow" >
-    <td ><input type="text" name="name" value="(#=obj.name#)" style="width:100%;" class="formElements"></td>
-    <td align="center" style="cursor: pointer"><span class="teamworkIcon delRes del" style="cursor: pointer">d</span></td>
-  </tr>
-  --></div>
-
-
+    
+    
 </div>
 <script type="text/javascript">
   $.JST.loadDecorator("RESOURCE_ROW", function(resTr, res){
@@ -1316,28 +1527,28 @@ function showBaselineInfo (event,element){
 
 
 
-  /**
-   * Creates a new resource by opening a popup dialog and setting the selected resource details on the UI.
-   *
-   * @param {HTMLElement} el The element that triggered the creation of a new resource. Used to find the corresponding row and update its data.
-   * @return {void} This function does not return any value but updates the input fields in the corresponding row with the new resource details.
-   */
-  function createNewResource(el)
-  {
-    var row = el.closest("tr[taskid]");
-    var name = row.find("[name=resourceId_txt]").val();
-    var url = contextPath + "/applications/teamwork/resource/resourceNew.jsp?CM=ADD&name=" + encodeURI(name);
-
-    openBlackPopup(url, 700, 320, function (response) {
-      //fillare lo smart combo
-      if (response && response.resId && response.resName) {
-        //fillare lo smart combo e chiudere l'editor
-        row.find("[name=resourceId]").val(response.resId);
-        row.find("[name=resourceId_txt]").val(response.resName).focus().blur();
-      }
-
-    });
-  }
+  // /**
+  //  * Creates a new resource by opening a popup dialog and setting the selected resource details on the UI.
+  //  *
+  //  * @param {HTMLElement} el The element that triggered the creation of a new resource. Used to find the corresponding row and update its data.
+  //  * @return {void} This function does not return any value but updates the input fields in the corresponding row with the new resource details.
+  //  */
+  // function createNewResource(el)
+  // {
+  //   var row = el.closest("tr[taskid]");
+  //   var name = row.find("[name=resourceId_txt]").val();
+  //   var url = contextPath + "/applications/teamwork/resource/resourceNew.jsp?CM=ADD&name=" + encodeURI(name);
+  //
+  //   openBlackPopup(url, 700, 320, function (response) {
+  //     //fillare lo smart combo
+  //     if (response && response.resId && response.resName) {
+  //       //fillare lo smart combo e chiudere l'editor
+  //       row.find("[name=resourceId]").val(response.resId);
+  //       row.find("[name=resourceId_txt]").val(response.resName).focus().blur();
+  //     }
+  //
+  //   });
+  // }
 
 $(document).on("change", "#load-file", function() {
   var uploadedFile = $("#load-file").prop("files")[0];
@@ -1374,7 +1585,16 @@ function showContextMenu(event, target)
     {
         if(event.target.classList.contains("taskLayout"))
         {
+
             cMenu = taskbarContextMenu;
+            console.log("ge.tasks[0].ganttElement.children()[0]",ge.tasks[0].ganttElement.children()[0]);
+            console.log("event.target",event.target);
+            let task = ge.tasks.find(task => task.ganttElement.children()[0] === event.target);
+            if (task) {
+                console.log('Task found:', task);
+            } else {
+                console.warn('No task found associated with the target.');
+            }
             console.log('TASK BAR');
         }
         else
@@ -1389,8 +1609,6 @@ function showContextMenu(event, target)
     cMenu.style.display = 'block';
     cMenuVisible = true;
 
-    // Optionally store information about the clicked target
-    cMenu.dataset.target = target.getAttribute('taskid');
 }
 	
 	/**
@@ -1428,6 +1646,73 @@ function showContextMenu(event, target)
 		showContextMenu(event, this);
 	}
 
+/* --------------- New Items put in  to deal with menu items ------------------------------------------ */
+  /**
+   * Handles the action triggered by a context menu option.
+   *
+   * @param {string} action - The action to be performed (e.g., 'edit', 'delete', 'details').
+   */
+  function onMenuAction(action) {
+      // Retrieve the element under the cursor when the menu action was triggered
+      const hoveredElement = document.querySelector(':hover');
+
+      // Log the action and hovered element for debugging
+      console.log('Action:', action);
+      console.log('Hovered Element:', hoveredElement);
+
+      if (!hoveredElement) {
+          console.warn('No valid element under the cursor.');
+          return;
+      }
+
+      // Handle actions based on the combination of action and hovered element
+      switch (action) {
+          case 'edit':
+              handleEditAction(hoveredElement);
+              break;
+          case 'delete':
+              handleDeleteAction(hoveredElement);
+              break;
+          case 'details':
+              handleDetailsAction(hoveredElement);
+              break;
+          default:
+              console.error('Unknown action:', action);
+      }
+  }
+
+  /**
+   * Handles the 'edit' context menu action.
+   *
+   * @param {HTMLElement} element - The element under the mouse cursor.
+   */
+  function handleEditAction(element) {
+      console.log('Editing:', element);
+      // Add custom logic to edit the task or element
+  }
+
+  /**
+   * Handles the 'delete' context menu action.
+   *
+   * @param {HTMLElement} element - The element under the mouse cursor.
+   */
+  function handleDeleteAction(element) {
+      console.log('Deleting:', element);
+      // Add custom logic to delete the task or element
+  }
+
+  /**
+   * Handles the 'details' context menu action.
+   *
+   * @param {HTMLElement} element - The element under the mouse cursor.
+   */
+  function handleDetailsAction(element) {
+      console.log('Viewing details of:', element);
+      // Add custom logic to view details of the task or element
+  }
+
+  /* ---------------------------------------------------------------------------------------------------- */
+
 	document.addEventListener("contextmenu", fireUpContextMenu);
 
 </script>
@@ -1450,11 +1735,16 @@ function showContextMenu(event, target)
 
 <div id="taskbarContextMenu" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; box-shadow:2px 2px 6px rgba(0,0,0,0.2); z-index:1000;">
     <ul style="list-style:none; margin:0; padding:0;">
-        <li style="padding:8px; cursor:pointer;" onclick="onMenuAction('edit')">taskGantt</li>
+        <li style="padding:8px; cursor:pointer;" onclick="onMenuAction('edit')">Edit Task</li>
         <li style="padding:8px; cursor:pointer;" onclick="onMenuAction('delete')">Delete Task</li>
         <li style="padding:8px; cursor:pointer;" onclick="onMenuAction('details')">View Details</li>
     </ul>
 </div>
+
+<!-- Starting point for the personal Task list div capability -->
+
+
+
 
 </body>
 </html>

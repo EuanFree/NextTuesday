@@ -360,6 +360,7 @@ const addTaskChange = async (userId, task) => {
                 Object.keys(t).forEach(key => {
                     // Compare properties that exist in both old and new tasks
                     if (task.hasOwnProperty(key)) {
+
                         if(key==='assigs') {
 
                                 const oldAssigs = t.assigs || [];
@@ -379,25 +380,22 @@ const addTaskChange = async (userId, task) => {
                     }
                 });
 
-// Collect properties that only exist in the new task
+                // Collect properties that only exist in the new task
                 Object.keys(task).forEach(key => {
                     if (!t.hasOwnProperty(key) && key !== 'ganttElement' && key !== 'master' && key !== 'rowElement') {
                         newValues[key] = task[key];
                     }
                 });
 
-// Log the differences for debugging purposes
-//                 console.log("Differences found:");
-//                 console.log("Old values:", oldValues);
-//                 console.log("New values:", newValues);
-                
-                // const oldValues = Object.keys(task).reduce((result, key) => {
-                //     if (currentTaskData.hasOwnProperty(key)) {
-                //         result[key] = currentTaskData[key];
-                //     }
-                //     return result;
-                // }, {});
-                // const newValues = task;
+
+                // Remove 'trackChanges' key from both oldValues and newValues if it exists
+                if (oldValues.hasOwnProperty('trackChanges')) {
+                    delete oldValues['trackChanges'];
+                }
+                if (newValues.hasOwnProperty('trackChanges')) {
+                    delete newValues['trackChanges'];
+                }
+
                 console.log("Task change details:");
                 console.log("Task ID:", task.id);
                 console.log("Changed by:", changedBy);
@@ -586,6 +584,10 @@ const updateTask = async (userId, task) => {
                 const end_date = new Date(changeSummary.newValues.end).toISOString().replace('T', ' ').replace('Z', '');
                 changeSummary.newValues.end = end_date;
             }
+            if(changeSummary.newValues.hasOwnProperty('trackChanges'))
+            {
+                delete changeSummary.newValues['trackChanges'];
+            }
             
             let changeTxt = JSON.stringify(changeSummary.newValues);
             console.log("Change summary: ", changeTxt);
@@ -751,6 +753,14 @@ const getCombinedProjectTaskDetails = async (projectID, userID, activeOnly) => {
         }
         const json = await response.json();
         // console.log("Combined project task details: ", json);
+
+        for(let i = 0; i < json.length; i++)
+        {
+            if(json[i].predecessors === null)
+            {
+                json[i].predecessors = [-1];
+            }
+        }
         return json;}
     catch(error){
         console.error(`Error fetching combined project task details:`, error);
@@ -904,5 +914,36 @@ const getAllUserNames = async () => {
     }
     catch(error){
         console.error(`Error fetching all user names:`, error);
+    }
+}
+
+/**
+ * Fetches all tasks associated with a specific user.
+ *
+ * This function sends a GET request to the server to retrieve
+ * all tasks for the user specified by the provided userId.
+ *
+ * @param {string} userId - The unique identifier of the user whose tasks are to be retrieved.
+ * @returns {Promise<Object>} A promise that resolves to the JSON response containing the user's tasks.
+ *                            If the request fails, it logs an error to the console.
+ * @throws {Error} Throws an error if the HTTP response has a non-OK status.
+ */
+const getAllUsersTask = async (userId) => {
+    try{
+        const response = await fetch(`${server}/getAllUsersTasks?userId=${userId}`);
+        if(!response.ok)
+        {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const json = await response.json();
+        if (json.successor_id == null)
+        {
+            json.successor_id = [-1];
+            json.predecessor_id = [-1];
+        }
+        return json;
+    }
+    catch(error){
+        console.error(`Error fetching all users task:`, error);
     }
 }

@@ -689,6 +689,17 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
                 self.gantt.centerOnToday();
               });
               // console.log("++++++++++> GM Debug 4");
+            //   Switch on the task changes tracking
+              console.log("Switching on task changes tracking");
+              for(let i = 0; i < this.tasks.length; i++)
+              {
+                this.tasks[i].trackChanges = true;
+              }
+
+              this.resetUndoRedoStack();
+
+              
+              console.log("Switching on task changes tracking - Done");
             })
           });
         })
@@ -702,39 +713,60 @@ GanttMaster.prototype.loadProjectFromDatabase = async function (projectId, userI
   }
 };
 
-let taskChangeTracking = false;
 
-function handleTaskChanges(changes) {
-  if(taskChangeTracking)
-  {
-    console.log("Task Changes Tracking on?:",taskChangeTracking);
-    console.log("*******************Batched Task Changes*****************************:");
-    changes.forEach(change => console.log(change));
-    console.log("********************************************************************:");
-    // changes.forEach(async change => {
-    //   await updateTask(change.task.id, change.)
-    // });
 
-    changes.forEach(async change => {
-      try {
-        // Update the task with the given change
+function handleTaskChanges(changes)
+{
+  console.log("*******************Batched Task Changes*****************************:");
+  changes.forEach(change => console.log(change));
+  console.log("********************************************************************:");
+  // changes.forEach(async change => {
+  //   await updateTask(change.task.id, change.)
+  // });
 
-        // Find the task with the matching change.id in this.tasks
-        // const targetTask = this.tasks.find(task => task.id === change.id);
-        const targetTask = change.task;
-        if (!targetTask) {
-          throw new Error(`Task with ID ${change.id} not found in this.tasks.`);
-        }
-        await updateTask(targetTask.master.userId, targetTask);
 
-        // Add the task change
-        // await addTaskChange(this.userId, change.id, change);
-      } catch (error) {
-        console.error(`Error processing change for task ID: ${change.task.id}`, error);
-      }
-    });
+  // Check if any of the changes have "property" equal to "trackChange"
+  const hasTrackChangeProperty = changes.some(change => change.property === "trackChange");
+  if (hasTrackChangeProperty) {
+    console.log("Track Changes option is being changed - ignore change");
+    return false;
   }
 
+  changes.forEach(async change => {
+    try {
+      // Update the task with the given change
+
+      // Find the task with the matching change.id in this.tasks
+      // const targetTask = this.tasks.find(task => task.id === change.id);
+      const targetTask = change.task;
+      if(!targetTask.trackChanges)
+      {
+        console.log("Task Change Tracking is off. Skipping task change.");
+        return false;
+      }
+      
+      
+      console.log("targetTask:",targetTask, " Task Update being logged");
+      let userID;
+      if (targetTask.master) {
+        userID = targetTask.master.userId;
+      } else {
+        userID = getCookie("SVNT_GANTT_USERID");
+      }
+      if (!userID) {
+        throw new Error("Unable to determine user ID. Ensure that targetTask.master is properly set or the 'SVNT_GANTT_USERID' cookie is available.");
+      }
+      if (!targetTask) {
+        throw new Error(`Task with ID ${change.id} not found in this.tasks.`);
+      }
+      await updateTask(userID, targetTask);
+
+      // Add the task change
+      // await addTaskChange(this.userId, change.id, change);
+    } catch (error) {
+      console.error(`Error processing change for task ID: ${change.task.id}`, error);
+    }
+  });
 }
 
 /**
@@ -747,7 +779,7 @@ function handleTaskChanges(changes) {
  */
 GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeOnly=true)
 {
-  taskChangeTracking = false;
+
   // console.log('loadTasksFromPostgreSQL');
   // console.log('taskChangeTracking:',taskChangeTracking);
   var factory = new TaskFactory();
@@ -787,6 +819,10 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
         handleTaskChanges
     );
 
+    t.rawPredecessors = task.predecessors;
+    t.rawLags = task.lags;
+    t.rawResources = task.resources;
+
     t.status = task.status;
     t.progress = task.progress;
 
@@ -799,29 +835,34 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
   for(let k = 0; k < this.tasks.length; k++)
   {
     // Fetch task dependencies
-    const dependencies = await getTaskDependencies(this.tasks[k].id);
-    const taskResource = await getTaskResources(this.tasks[k].id);
-
+    // const dependencies = await getTaskDependencies(this.tasks[k].id);
+    // const taskResource = await getTaskResources(this.tasks[k].id);
+    const dependencies = this.tasks[k].rawPredecessors;
+    const lags = this.tasks[k].rawLags;
+    const taskResource = this.tasks[k].rawResources;
+    delete this.tasks[k].rawPredecessors;
+    delete this.tasks[k].rawLags;
+    delete this.tasks[k].rawResources;
     // console.log('taskResource:', taskResource);
 
     // Process dependencies
-    if (dependencies[0].successor_id !== -1)
+    if (dependencies && dependencies[0] !== -1)
     {
       let deps = '';
       for (let j = 0; j < dependencies.length; j++) {
-        deps += dependencies[j].predecessor_id +
+        deps += dependencies[j] +
             (j === dependencies.length - 1 ? '' : ',');
       }
       this.tasks[k].depends = deps;
 
       // Add a new link to the this.links array based on dependencies
       for (let j = 0; j < dependencies.length; j++) {
-        const predecessorId = dependencies[j].predecessor_id;
-        const successorId = dependencies[j].successor_id;
+        const predecessorId = dependencies[j];
+        const successorId = this.tasks[k].id;
 
         let fromTask = this.tasks.find(task => (task.id === predecessorId));
         let toTask = this.tasks.find(task => (task.id === successorId));
-        let lag = dependencies[j].lag;
+        let lag = lags[j];
 
         // console.log('fromTask:', fromTask);
         // console.log('toTask:', toTask);
@@ -855,7 +896,7 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     {
       for(let j = 0; j < taskResource.length; j++)
       {
-        const resourceID = taskResource[j].resource_id;
+        const resourceID = taskResource[j];
 
 
         // Look up the resource type from this.resources based on the taskResource id - 1
@@ -920,8 +961,10 @@ GanttMaster.prototype.loadTasksFromPostgreSQL = async function(projectID,activeO
     selectedRow = selectedRow ? selectedRow : 0;
     this.tasks[selectedRow].rowElement.click();
   }
-  taskChangeTracking = true;
-  console.log('taskChangeTracking - End:',taskChangeTracking);
+  // taskChangeTracking = true;
+  // allowTaskUpdate = true;
+  //
+
   console.log('>>>>>>>>End of task loading <<<<<<<<<<');
   return true;
 }
@@ -1741,6 +1784,56 @@ GanttMaster.prototype.deleteCurrentTask = function (taskId) {
 };
 
 
+GanttMaster.prototype.highlightTask = function (taskId) {
+
+  if (!taskId) return;
+
+  var self = this;
+  var task = self.getTask(taskId);
+
+  if (!task) return;
+
+  // Scroll the task into view and center it
+  var taskElement = task.rowElement;
+  if (taskElement && taskElement.length) {
+    self.scrollToTask(task);
+  }
+
+  // Highlight the task
+  taskElement.addClass("highlighted");
+
+  // Ensure task is selected visually
+  task.rowElement.click();
+  this.redraw();
+}
+
+/**
+ * Scrolls the Gantt chart to bring the specified task into view.
+ * Ensures that the task is centered within the visible area of the chart.
+ *
+ * @param {Object} task - The task object to scroll to.
+ */
+GanttMaster.prototype.scrollToTask = function (task) {
+  if (!task || !task.rowElement) return;
+
+  var taskElement = task.rowElement; // The DOM element representing the task row
+  var container = this.workSpace; // The container holding the Gantt chart
+
+  if (!container || !container.length) return;
+
+  // Get the position of the task element relative to the container
+  var containerOffset = container.offset().top;
+  var taskOffset = taskElement.offset().top;
+
+  // Calculate the scroll position to center the task in the container
+  var containerHeight = container.height();
+  var taskHeight = taskElement.outerHeight();
+  var scrollPosition = container.scrollTop() + (taskOffset - containerOffset) - (containerHeight / 2) + (taskHeight / 2);
+
+  // Smoothly scroll to the calculated position
+  container.animate({scrollTop: scrollPosition}, 300);
+};
+
 
 
 /**
@@ -2090,6 +2183,13 @@ GanttMaster.prototype.checkpoint = function () {
   this.__redoStack = [];
   this.saveRequired();
 };
+
+
+GanttMaster.prototype.resetUndoRedoStack = function () {
+  this.__undoStack = [];
+  this.__redoStack = [];
+}
+
 
 //----------------------------- UNDO/REDO MANAGEMENT ---------------------------------%>
 
