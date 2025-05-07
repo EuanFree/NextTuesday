@@ -10,6 +10,80 @@
     <link href="https://fonts.googleapis.com/css?family=Lexend" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=League Spartan' rel='stylesheet'>
 
+<!-- Material Google Fonts for application icons -->
+
+    <script>
+        // Array of material symbols you want to include
+        const materialSymbols = [
+            'settings',
+            'undo',
+            'redo',
+            'menu',
+            'add',
+            'close',
+            'more_horiz',
+            'more_vert',
+            'left_panel_open',
+            'left_panel_close',
+            'fullscreen',
+            'palette',
+            'delete',
+            'north',
+            'south',
+            'west',
+            'east',
+            'zoom_in',
+            'zoom_out',
+            'add_row_above',
+            'add_row_below',
+            'expand',
+            'compress',
+            'expand_all',
+            'collapse_all',
+            'view_timeline',
+            'dock_to_right',
+            'dock_to_left',
+            'split_scene',
+            'list_alt',
+            'arrow_split',
+            'person',
+            'account_circle',
+            'warning',
+            'error',
+            'info',
+            'help',
+            'search',
+            'add_circle',
+            'remove_circle',
+            'edit',
+            'delete_forever',
+            'check',
+            'calendar_today',
+            'calendar_month',
+            'edit_calendar',
+            'notes',
+            'print',
+            'history',
+            'view_object_track',
+            'place_item',
+            'stat_0'
+        ];
+
+        // Sort materialSymbols into alphabetical order
+        materialSymbols.sort();
+        
+
+        // Concatenate all materialSymbols into a single comma-separated string
+        const materialSymbolsString = materialSymbols.join(',');
+        console.log('Concatenated Material Symbols:', materialSymbolsString);
+        const href = `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=${materialSymbolsString}`;
+        const linkElement = document.createElement('link');
+        linkElement.rel = 'stylesheet';
+        linkElement.href = href;
+        document.head.appendChild(linkElement);
+
+    </script>
+
   <link rel=stylesheet href="platform.css" type="text/css">
   <link rel=stylesheet href="libs/jquery/dateField/jquery.dateField.css" type="text/css">
 
@@ -78,7 +152,7 @@
 <div class="layout-container">
     <!-- Collapsible side menu -->
     <div id="sideMenu">
-        <button id="toggleSidebar">Toggle</button>
+        <button id="toggleSidebar"><span id="toggleSideBarIcon" class="material-symbols-outlined toggleSideBarIcon">left_panel_close</span></button>
         <div id="menuContainer"></div>
     </div>
 
@@ -134,7 +208,7 @@
                         <tr>
                           <th style="width:50px;">Task</th>
                           <th style="width:200px;">Title</th>
-                          <th style="width:30px;cursor: pointer" id="addDependency"><span class="teamworkIcon" style="cursor: pointer">d</span></th>
+                          <th style="width:30px;cursor: pointer" id="addDependency"><span class="material-symbols-outlined" style="cursor: pointer">delete</span></th>
                         </tr>
                       </table>
                     </div>
@@ -145,7 +219,7 @@
                         <tr>
                           <th style="width:50px;">Task</th>
                           <th style="width:200px;">Title</th>
-                          <th style="width:30px;cursor: pointer" id="addDependency"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+                          <th style="width:30px;cursor: pointer" id="addDependency"><span class="material-symbols-outlined" style="cursor: pointer">add</span></th>
                         </tr>
                       </table>
                     </div>
@@ -166,7 +240,7 @@
                         <span>(#=obj.title#)</span>
                     </td>
                     <td align="center" style="cursor: pointer">
-                        <span class="teamworkIcon delDep del" style="cursor: pointer">d</span>
+                        <span class="material-symbols-outlined delDep del" style="cursor: pointer">delete</span>
                     </td>
                 </tr>
             -->
@@ -183,7 +257,7 @@
                     <span>(#=obj.title#)</span>
                 </td>
                 <td align="center" style="cursor: pointer">
-                    <span class="teamworkIcon addDep add" style="cursor: pointer">+</span>
+                    <span class="material-symbols-outlined addDep add" style="cursor: pointer">add</span>
                 </td>
             </tr>
         -->
@@ -213,6 +287,7 @@
                     <tbody>
                     </tbody>
                 </table>
+           </div>
         -->
     </div>
 
@@ -230,14 +305,40 @@
                 <td class="ptlCell taskEndDate"><span>(#=obj.end_date#)</span></td>
                 <td class="ptlCell taskDuration"><input type="text" name="duration" autocomplete="off" class="ptlInput" value="(#=obj.duration#)"></td>
                 <td class="ptlCell taskProgress"><input type="text" name="progress" class="ptlInput validated" entrytype="PERCENTILE" autocomplete="off" value="(#=obj.progress#)"></td>
-                <td class="ptlCell gotoArrow"><span>Arrow</span></td>
+                <td class="ptlCell gotoArrow"><span class="material-symbols-outlined">view_timeline</span></td>
+            </tr>
+        -->
+    </div>
+
+    <div class="__template__" type="RIGHT_CLICK_MENU">
+        <!--
+            <div id="rightClickMenu" class="rcMenu">
+                <table class="rcOptionsTable" id="rightClickMenuTable">
+                </table>
+            </div>
+        -->
+    </div>
+
+    <div class="__template__" type="RIGHT_CLICK_MENU_ITEM">
+        <!--
+            <tr class="rcOptionRow" >
+                <td class="rcOptionIcon" id="(#=obj.iconID#)">
+                    <span class="material-symbols-outlined">(#=obj.iconName#)</span>
+                </td>
+                <td class="rcOptionText" id="(#=obj.textID#)">
+                    <span>(#=obj.text#)</span>
+                </td>
             </tr>
         -->
     </div>
 
 </div>
 <!-- style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1000;" -->
+<!--<td class="rcOptionText" id="(#=obj.textID)">-->
+<!--    <span>(#=obj.text)</span>-->
+<!--</td>-->
 
+<!--id="(#=obj.row)"-->
 <script>
 
 
@@ -716,6 +817,14 @@
     // Toggle side menu collapse
     $("#toggleSidebar").on("click", function () {
         $("#sideMenu").toggleClass("collapsed");
+        if($("#toggleSideBarIcon")[0].textContent === "left_panel_open")
+        {
+            $("#toggleSideBarIcon")[0].textContent = "left_panel_close"; // Change the content of the span
+        }
+        else
+        {
+            $("#toggleSideBarIcon")[0].textContent = "left_panel_open"; // Change the content of the span
+        }
     });
 </script>
 
@@ -1078,7 +1187,7 @@ function initializeHistoryManagement(taskId){
     if (response.ok == true && response.historyPoints && response.historyPoints.length>0) {
 
       //add show slider button on button bar
-      var histBtn = $("<button>").addClass("button textual icon lreq30 lreqLabel").attr("title", "SHOW_HISTORY").append("<span class=\"teamworkIcon\">&#x60;</span>");
+      var histBtn = $("<button>").addClass("button textual icon lreq30 lreqLabel").attr("title", "SHOW_HISTORY").append("<span class=\"material-symbols-outlined\">history</span>");
 
       //clicking it
       histBtn .click(function () {
@@ -1199,37 +1308,37 @@ function showBaselineInfo (event,element){
     <div class="buttons">
       
 
-      <button onclick="$('#workSpace').trigger('undo.gantt');return false;" class="button textual icon requireCanWrite" title="undo"><span class="teamworkIcon">&#39;</span></button>
-      <button onclick="$('#workSpace').trigger('redo.gantt');return false;" class="button textual icon requireCanWrite" title="redo"><span class="teamworkIcon">&middot;</span></button>
+      <button onclick="$('#workSpace').trigger('undo.gantt');return false;" class="button textual icon requireCanWrite" title="undo"><span class="material-symbols-outlined">undo</span></button>
+      <button onclick="$('#workSpace').trigger('redo.gantt');return false;" class="button textual icon requireCanWrite" title="redo"><span class="material-symbols-outlined">redo</span></button>
       <span class="ganttButtonSeparator requireCanWrite requireCanAdd"></span>
-      <button onclick="$('#workSpace').trigger('addAboveCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanAdd" title="insert above"><span class="teamworkIcon">l</span></button>
-      <button onclick="$('#workSpace').trigger('addBelowCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanAdd" title="insert below"><span class="teamworkIcon">X</span></button>
+      <button onclick="$('#workSpace').trigger('addAboveCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanAdd" title="insert above"><span class="material-symbols-outlined">add_row_above</span></button>
+      <button onclick="$('#workSpace').trigger('addBelowCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanAdd" title="insert below"><span class="material-symbols-outlined">add_row_below</span></button>
       <span class="ganttButtonSeparator requireCanWrite requireCanInOutdent"></span>
-      <button onclick="$('#workSpace').trigger('outdentCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanInOutdent" title="un-indent task"><span class="teamworkIcon">.</span></button>
-      <button onclick="$('#workSpace').trigger('indentCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanInOutdent" title="indent task"><span class="teamworkIcon">:</span></button>
+      <button onclick="$('#workSpace').trigger('outdentCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanInOutdent" title="un-indent task"><span class="material-symbols-outlined">west</span></button>
+      <button onclick="$('#workSpace').trigger('indentCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanInOutdent" title="indent task"><span class="material-symbols-outlined">east</span></button>
       <span class="ganttButtonSeparator requireCanWrite requireCanMoveUpDown"></span>
-      <button onclick="$('#workSpace').trigger('moveUpCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanMoveUpDown" title="move up"><span class="teamworkIcon">k</span></button>
-      <button onclick="$('#workSpace').trigger('moveDownCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanMoveUpDown" title="move down"><span class="teamworkIcon">j</span></button>
+      <button onclick="$('#workSpace').trigger('moveUpCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanMoveUpDown" title="move up"><span class="material-symbols-outlined">north</span></button>
+      <button onclick="$('#workSpace').trigger('moveDownCurrentTask.gantt');return false;" class="button textual icon requireCanWrite requireCanMoveUpDown" title="move down"><span class="material-symbols-outlined">south</span></button>
       <span class="ganttButtonSeparator requireCanWrite requireCanDelete"></span>
-      <button onclick="$('#workSpace').trigger('deleteFocused.gantt');return false;" class="button textual icon delete requireCanWrite" title="Elimina"><span class="teamworkIcon">&cent;</span></button>
+      <button onclick="$('#workSpace').trigger('deleteFocused.gantt');return false;" class="button textual icon delete requireCanWrite" title="Elimina"><span class="material-symbols-outlined">delete</span></button>
       <span class="ganttButtonSeparator"></span>
-      <button onclick="$('#workSpace').trigger('expandAll.gantt');return false;" class="button textual icon " title="EXPAND_ALL"><span class="teamworkIcon">6</span></button>
-      <button onclick="$('#workSpace').trigger('collapseAll.gantt'); return false;" class="button textual icon " title="COLLAPSE_ALL"><span class="teamworkIcon">5</span></button>
+      <button onclick="$('#workSpace').trigger('expandAll.gantt');return false;" class="button textual icon " title="EXPAND_ALL"><span class="material-symbols-outlined">expand_all</span></button>
+      <button onclick="$('#workSpace').trigger('collapseAll.gantt'); return false;" class="button textual icon " title="COLLAPSE_ALL"><span class="material-symbols-outlined">collapse_all</span></button>
 
     <span class="ganttButtonSeparator"></span>
-      <button onclick="$('#workSpace').trigger('zoomMinus.gantt'); return false;" class="button textual icon " title="zoom out"><span class="teamworkIcon">)</span></button>
-      <button onclick="$('#workSpace').trigger('zoomPlus.gantt');return false;" class="button textual icon " title="zoom in"><span class="teamworkIcon">(</span></button>
+      <button onclick="$('#workSpace').trigger('zoomMinus.gantt'); return false;" class="button textual icon " title="zoom out"><span class="material-symbols-outlined">zoom_out</span></button>
+      <button onclick="$('#workSpace').trigger('zoomPlus.gantt');return false;" class="button textual icon " title="zoom in"><span class="material-symbols-outlined">zoom_in</span></button>
     <span class="ganttButtonSeparator"></span>
-      <button onclick="$('#workSpace').trigger('print.gantt');return false;" class="button textual icon " title="Print"><span class="teamworkIcon">p</span></button>
+      <button onclick="$('#workSpace').trigger('print.gantt');return false;" class="button textual icon " title="Print"><span class="material-symbols-outlined">print</span></button>
     <span class="ganttButtonSeparator"></span>
-      <button onclick="ge.gantt.showCriticalPath=!ge.gantt.showCriticalPath; ge.redraw();return false;" class="button textual icon requireCanSeeCriticalPath" title="CRITICAL_PATH"><span class="teamworkIcon">&pound;</span></button>
+      <button onclick="ge.gantt.showCriticalPath=!ge.gantt.showCriticalPath; ge.redraw();return false;" class="button textual icon requireCanSeeCriticalPath" title="CRITICAL_PATH"><span class="material-symbols-outlined">arrow_split</span></button>
     <span class="ganttButtonSeparator requireCanSeeCriticalPath"></span>
-      <button onclick="ge.splitter.resize(.1);return false;" class="button textual icon" ><span class="teamworkIcon">F</span></button>
-      <button onclick="ge.splitter.resize(50);return false;" class="button textual icon" ><span class="teamworkIcon">O</span></button>
-      <button onclick="ge.splitter.resize(100);return false;" class="button textual icon"><span class="teamworkIcon">R</span></button>
+      <button onclick="ge.splitter.resize(.1);return false;" class="button textual icon" ><span class="material-symbols-outlined">dock_to_right</span></button>
+      <button onclick="ge.splitter.resize(50);return false;" class="button textual icon" ><span class="material-symbols-outlined">split_scene</span></button>
+      <button onclick="ge.splitter.resize(100);return false;" class="button textual icon"><span class="material-symbols-outlined">dock_to_left</span></button>
       <span class="ganttButtonSeparator"></span>
-      <button onclick="$('#workSpace').trigger('fullScreen.gantt');return false;" class="button textual icon" title="FULLSCREEN" id="fullscrbtn"><span class="teamworkIcon">@</span></button>
-      <button onclick="ge.element.toggleClass('colorByStatus' );return false;" class="button textual icon"><span class="teamworkIcon">&sect;</span></button>
+      <button onclick="$('#workSpace').trigger('fullScreen.gantt');return false;" class="button textual icon" title="FULLSCREEN" id="fullscrbtn"><span class="material-symbols-outlined">fullscreen</span></button>
+      <button onclick="ge.element.toggleClass('colorByStatus' );return false;" class="button textual icon"><span class="material-symbols-outlined">palette</span></button>
 
 
     </div>
@@ -1238,9 +1347,7 @@ function showBaselineInfo (event,element){
   -->
 </div>
 
-<!--Removed from the button bar-->
-<!--    <button onclick="editResources();" class="button textual requireWrite" title="edit resources"><span class="teamworkIcon">M</span></button>-->
-<!--    &nbsp; &nbsp; &nbsp; &nbsp;-->
+
 
 <div class="__template__" type="TASKSEDITHEAD"><!--
   <table class="gdfTable" cellspacing="0" cellpadding="0">
@@ -1250,9 +1357,9 @@ function showBaselineInfo (event,element){
       <th class="gdfColHeader" style="width:25px;"></th>
       <th class="gdfColHeader gdfResizable" style="width:100px;">code/short name</th>
       <th class="gdfColHeader gdfResizable" style="width:300px;">name</th>
-      <th class="gdfColHeader"  align="center" style="width:17px;" title="Start date is a milestone."><span class="teamworkIcon" style="font-size: 8px;">^</span></th>
+      <th class="gdfColHeader"  align="center" style="width:17px;" title="Start date is a milestone."><span class="material-symbols-outlined" style="font-size: 8px;">stat_0</span></th>
       <th class="gdfColHeader gdfResizable" style="width:80px;">start</th>
-      <th class="gdfColHeader"  align="center" style="width:17px;" title="End date is a milestone."><span class="teamworkIcon" style="font-size: 8px;">^</span></th>
+      <th class="gdfColHeader"  align="center" style="width:17px;" title="End date is a milestone."><span class="material-symbols-outlined" style="font-size: 8px;">stat_0</span></th>
       <th class="gdfColHeader gdfResizable" style="width:80px;">End</th>
       <th class="gdfColHeader gdfResizable" style="width:50px;">dur.</th>
       <th class="gdfColHeader gdfResizable" style="width:20px;">%</th>
@@ -1265,7 +1372,7 @@ function showBaselineInfo (event,element){
 
 
 <div class="__template__" type="TASKROW"><!--  <tr id="tid_(#=obj.id#)" taskId="(#=obj.id#)" class="taskEditRow (#=obj.isParent()?'isParent':''#) (#=obj.collapsed?'collapsed':''#)" level="(#=level#)">
-    <th class="gdfCell edit" align="right" style="cursor:pointer;"><span class="taskRowIndex">(#=obj.getRow()+1#)</span> <span class="teamworkIcon" style="font-size:12px;" >e</span></th>
+    <th class="gdfCell edit" align="right" style="cursor:pointer;"><span class="taskRowIndex">(#=obj.getRow()+1#)</span> <span class="material-symbols-outlined" style="font-size:12px;" >edit</span></th>
     <td class="gdfCell noClip" align="center"><div class="taskStatus cvcColorSquare" status="(#=obj.status#)"></div></td>
     <td class="gdfCell"><input type="text" name="code" value="(#=obj.code?obj.code:''#)" placeholder="code/short name"></td>
     <td class="gdfCell indentCell" style="padding-left:(#=obj.level*10+18#)px;">
@@ -1347,13 +1454,13 @@ function showBaselineInfo (event,element){
             <label for="start">start</label>&nbsp;&nbsp;&nbsp;&nbsp;
             <input type="checkbox" id="startIsMilestone" name="startIsMilestone" value="yes"> &nbsp;<label for="startIsMilestone">is milestone</label>&nbsp;
             <br><input type="text" name="start" id="start" size="8" class="formElements dateField validated date" autocomplete="off" maxlength="255" value="" oldvalue="1" entrytype="DATE">
-            <span title="calendar" id="starts_inputDate" class="teamworkIcon openCalendar" onclick="$(this).dateField({inputField:$(this).prevAll(':input:first'),isSearchField:false});">m</span>          </div>
+            <span title="calendar" id="starts_inputDate" class="material-symbols-outlined openCalendar" onclick="$(this).dateField({inputField:$(this).prevAll(':input:first'),isSearchField:false});">edit_calendar</span>          </div>
         </td>
         <td nowrap="">
           <label for="end">End</label>&nbsp;&nbsp;&nbsp;&nbsp;
           <input type="checkbox" id="endIsMilestone" name="endIsMilestone" value="yes"> &nbsp;<label for="endIsMilestone">is milestone</label>&nbsp;
           <br><input type="text" name="end" id="end" size="8" class="formElements dateField validated date" autocomplete="off" maxlength="255" value="" oldvalue="1" entrytype="DATE">
-          <span title="calendar" id="ends_inputDate" class="teamworkIcon openCalendar" onclick="$(this).dateField({inputField:$(this).prevAll(':input:first'),isSearchField:false});">m</span>
+          <span title="calendar" id="ends_inputDate" class="material-symbols-outlined openCalendar" onclick="$(this).dateField({inputField:$(this).prevAll(':input:first'),isSearchField:false});">edit_calendar</span>
         </td>
         <td nowrap="" >
           <label for="duration" class=" ">Days</label><br>
@@ -1394,7 +1501,7 @@ function showBaselineInfo (event,element){
   <table  cellspacing="1" cellpadding="0" width="100%" id="assigsTable">
     <tr>
       <th style="width:100px;">Title</th>
-      <th style="width:30px;cursor: pointer" id="addAssig"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+      <th style="width:30px;cursor: pointer" id="addAssig"><span class="material-symbols-outlined" style="cursor: pointer">add</span></th>
     </tr>
   </table>
 
@@ -1413,7 +1520,7 @@ function showBaselineInfo (event,element){
     <div class="__template__" type="ASSIGNMENT_ROW"><!--
   <tr taskId="(#=obj.task.id#)" assId="(#=obj.assig.id#)" class="assigEditRow" >
     <td ><select name="resourceId"  class="formElements" (#=obj.assig.id.indexOf("tmp_")==0?"":"disabled"#) ></select></td>
-    <td align="center" style="cursor: pointer"><span class="teamworkIcon delAssig del" style="cursor: pointer">d</span></td>
+    <td align="center" style="cursor: pointer"><span class="material-symbols-outlined delAssig del" style="cursor: pointer">delete</span></td>
   </tr>
   --></div>
 
@@ -1429,7 +1536,7 @@ function showBaselineInfo (event,element){
         <table  cellspacing="1" cellpadding="0" width="100%" id="resourcesTable">
           <tr>
             <th style="width:100px;">name</th>
-            <th style="width:30px;cursor: pointer" id="addResource"><span class="teamworkIcon" style="cursor: pointer">+</span></th>
+            <th style="width:30px;cursor: pointer" id="addResource"><span class="material-symbols-outlined" style="cursor: pointer">add</span></th>
           </tr>
         </table>
     
@@ -1444,7 +1551,7 @@ function showBaselineInfo (event,element){
     <!--
       <tr resId="(#=obj.id#)" class="resRow" >
         <td ><input type="text" name="name" value="(#=obj.name#)" style="width:100%;" class="formElements"></td>
-        <td align="center" style="cursor: pointer"><span class="teamworkIcon delRes del" style="cursor: pointer">d</span></td>
+        <td align="center" style="cursor: pointer"><span class="material-symbols-outlined delRes del" style="cursor: pointer">delete</span></td>
       </tr>
   -->
 </div>
@@ -1550,82 +1657,68 @@ function showBaselineInfo (event,element){
   //   });
   // }
 
-$(document).on("change", "#load-file", function() {
-  var uploadedFile = $("#load-file").prop("files")[0];
-  upload(uploadedFile);
-});
-let cMenu = null;
-let cMenuVisible = false;
-function showContextMenu(event, target)
-{
-    if(event.target.classList.contains('ganttButtonBar')||event.target.classList.contains('buttons'))
-    {
-        cMenu.style.display = 'none';
-        cMenuVisible = false;
-        event.preventDefault();
-        return 0;
-    }
-
-    if(cMenuVisible)
-    {
-        cMenu.style.display = 'none';
-        cMenuVisible = false;
-    }
-    event.preventDefault();
-
-    console.log(event.target);
-    console.log(event.target.classList);
-
-    if(document.querySelector('.gdfWrapper').contains(event.target))
-    {
-        cMenu = tableContextMenu;
-        console.log('GDF WRAPPER');
-    }
-    else if(document.querySelector('.splitBox2').contains(event.target))
-    {
-        if(event.target.classList.contains("taskLayout"))
-        {
-
-            cMenu = taskbarContextMenu;
-            console.log("ge.tasks[0].ganttElement.children()[0]",ge.tasks[0].ganttElement.children()[0]);
-            console.log("event.target",event.target);
-            let task = ge.tasks.find(task => task.ganttElement.children()[0] === event.target);
-            if (task) {
-                console.log('Task found:', task);
-            } else {
-                console.warn('No task found associated with the target.');
-            }
-            console.log('TASK BAR');
-        }
-        else
-        {
-            cMenu = nonTaskGanttContextMenu;
-            console.log('SPLIT BOX 2');
-        }
-    }
-    console.log(cMenu);
-    cMenu.style.top = `${event.clientY}px`;
-    cMenu.style.left = `${event.clientX}px`;
-    cMenu.style.display = 'block';
-    cMenuVisible = true;
-
-}
+// $(document).on("change", "#load-file", function() {
+//   var uploadedFile = $("#load-file").prop("files")[0];
+//   upload(uploadedFile);
+// });
+// let cMenu = null;
+// let cMenuVisible = false;
+// function showContextMenu(event, target)
+// {
+//     if(event.target.classList.contains('ganttButtonBar')||event.target.classList.contains('buttons'))
+//     {
+//         cMenu.style.display = 'none';
+//         cMenuVisible = false;
+//         event.preventDefault();
+//         return 0;
+//     }
+//
+//     if(cMenuVisible)
+//     {
+//         cMenu.style.display = 'none';
+//         cMenuVisible = false;
+//     }
+//     event.preventDefault();
+//
+//     console.log(event.target);
+//     console.log(event.target.classList);
+//
+//     if(document.querySelector('.gdfWrapper').contains(event.target))
+//     {
+//         cMenu = tableContextMenu;
+//         console.log('GDF WRAPPER');
+//     }
+//     else if(document.querySelector('.splitBox2').contains(event.target))
+//     {
+//         if(event.target.classList.contains("taskLayout"))
+//         {
+//
+//             cMenu = taskbarContextMenu;
+//             console.log("ge.tasks[0].ganttElement.children()[0]",ge.tasks[0].ganttElement.children()[0]);
+//             console.log("event.target",event.target);
+//             let task = ge.tasks.find(task => task.ganttElement.children()[0] === event.target);
+//             if (task) {
+//                 console.log('Task found:', task);
+//             } else {
+//                 console.warn('No task found associated with the target.');
+//             }
+//             console.log('TASK BAR');
+//         }
+//         else
+//         {
+//             cMenu = nonTaskGanttContextMenu;
+//             console.log('SPLIT BOX 2');
+//         }
+//     }
+//     console.log(cMenu);
+//     cMenu.style.top = `${event.clientY}px`;
+//     cMenu.style.left = `${event.clientX}px`;
+//     cMenu.style.display = 'block';
+//     cMenuVisible = true;
+//
+// }
 	
-	/**
-     * Hides the context menu if the clicked target is outside of the specified menu element.
-     *
-     * @param {Event} event The event object representing the user interaction.
-     * @param {HTMLElement} target The target HTML element associated with the context menu.
-     * @return {void}
-     */
-    function hideContextMenu(event, target)
-	{
-		if(!cMenu.contains(event.target))
-		{
-			cMenu.style.display = 'none';
-			cMenuVisible = false;
-		}
-	}
+
 	
 	/**
      * Handles the triggering of a context menu when a specific event occurs.
@@ -1713,7 +1806,8 @@ function showContextMenu(event, target)
 
   /* ---------------------------------------------------------------------------------------------------- */
 
-	document.addEventListener("contextmenu", fireUpContextMenu);
+	// document.addEventListener("contextmenu", fireUpContextMenu);
+  document.addEventListener("contextmenu", launchRightClickMenu);
 
 </script>
 

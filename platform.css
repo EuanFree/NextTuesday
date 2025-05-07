@@ -863,4 +863,38 @@ iframe#bwinPopup {
 
 .ptlCell.gotoArrow {
   cursor: pointer;
+  font-variation-settings: 'FILL' 0, 'wght' 100, 'GRAD' 0, 'opsz' 48;
+}
+
+.ptlCell.gotoArrow:hover {
+  font-variation-settings: 'FILL' 0, 'wght' 700, 'GRAD' 0, 'opsz' 48;
+}
+
+/* --------------------------------------- RIGHT CLICK MENU --------------------------*/
+
+.rcMenu {
+  position: absolute;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  padding: 5px;
+  z-index: 1000;
+  display: none;
+  box-shadow:2px 2px 6px rgba(0,0,0,0.2);
+}
+
+.rcMenu .optionsTable {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  border: none;
+}
+
+.rcMenu .rcOptionRow {
+  text-align: left;
+  vertical-align: middle;
+}
+
+.rcMenu .rcOptionRow:hover {
+  background-color: #f4de6e;
 }

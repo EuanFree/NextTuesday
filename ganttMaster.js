@@ -1008,11 +1008,12 @@ GanttMaster.prototype.getResource = function (resId) {
 
 
 /**
- * Updates the dependencies of a task and triggers the necessary updates in the Gantt chart.
+ * Updates the dependencies of a given task.
  *
- * @param {Object} task - The task object whose dependencies are to be changed.
- * @param {Array} newDeps - An array of new dependencies for the task. Each dependency is typically represented by the ID of the task it depends on.
- * @returns {void}
+ * @method changeTaskDeps
+ * @memberof GanttMaster.prototype
+ * @param {Task} task - The task whose dependencies are to be updated.
+ * @returns {boolean} - Returns true if the dependencies were successfully updated, otherwise false.
  */
 GanttMaster.prototype.changeTaskDeps = function (task) {
   return task.moveTo(task.start,false,true);
@@ -1644,6 +1645,7 @@ GanttMaster.prototype.addBelowCurrentTask = function () {
   var factory = new TaskFactory();
   var ch;
   var row = 0;
+  var taskPair = [self.currentTask];
   if (self.currentTask && self.currentTask.name) {
     //add below add a brother if current task is not already a parent
     var addNewBrother = !(self.currentTask.isParent() || self.currentTask.level==0);
@@ -1664,13 +1666,16 @@ GanttMaster.prototype.addBelowCurrentTask = function () {
     if (row>0) {
       self.beginTransaction();
       var task = self.addTask(ch, row);
+      taskPair.push(task);
       if (task) {
         task.rowElement.click();
         task.rowElement.find("[name=name]").focus();
       }
       self.endTransaction();
     }
+    return taskPair;
   }
+
 };
 
 /**
@@ -1703,6 +1708,7 @@ GanttMaster.prototype.addAboveCurrentTask = function () {
 
   var ch;
   var row = 0;
+  var taskPair = [self.currentTask];
   if (self.currentTask  && self.currentTask.name) {
     //cannot add brothers to root
     if (self.currentTask.level <= 0)
@@ -1714,12 +1720,14 @@ GanttMaster.prototype.addAboveCurrentTask = function () {
     if (row > 0) {
       self.beginTransaction();
       var task = self.addTask(ch, row);
+      taskPair.push(task);
       if (task) {
         task.rowElement.click();
         task.rowElement.find("[name=name]").focus();
       }
       self.endTransaction();
     }
+    return taskPair;
   }
 };
 

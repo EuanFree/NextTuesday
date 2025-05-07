@@ -334,3 +334,283 @@ const showSummaryWindow = (type, id) => {
     console.log(`Showing summary for ${type} with ID: ${id}`);
     // TODO: Add logic to open and populate the summary window based on the type and ID
 };
+
+
+
+
+
+/* -------------------------------------------------------------------------------------------------------------------
+/* Right click functionality
+   -------------------------------------------------------------------------------------------------------------------*/
+
+let cMenu = null;
+let cMenuVisible = false;
+
+
+
+// Commented out as trying to find an easy way to identify the task is not available
+// rcMenuSetups.push({objClass:"ganttLinesSVG", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+// rcMenuSetups.push({objClass:"ganttLinesSVG rowSelected", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+
+
+/**
+ * Hides the context menu if the clicked target is outside of the specified menu element.
+ *
+ * @param {Event} event The event object representing the user interaction.
+ * @param {HTMLElement} target The target HTML element associated with the context menu.
+ * @return {void}
+ */
+function hideContextMenu(event, target)
+{
+
+
+    // Search for any element with a class of rcMenu type and remove it from the document
+    const menus = document.querySelectorAll('.rcMenu');
+    menus.forEach(menu => {
+        if (menu.parentNode) {
+            menu.parentNode.removeChild(menu);
+        }
+    });
+    cMenu = null;
+    cMenuVisible = false;
+    
+    // if (!$(cMenu)[0].contains(event.target)) {
+    //     $(cMenu)[0].style.display = 'none';
+    //     cMenuVisible = false;
+    //
+    //     // Remove the pop-up menu from the document
+    //     if ($(cMenu)[0].parentNode) {
+    //         $(cMenu)[0].parentNode.removeChild($(cMenu)[0]);
+    //     }
+    // }
+    // cMenu = null;
+    // cMenuVisible = false;
+}
+
+
+const launchRightClickMenu = (event) => {
+    if (cMenu!== null)
+    {
+        hideContextMenu(event, this);
+    }
+
+    document.addEventListener('click',hideContextMenu);
+    createRightClickMenu(event, this);
+}
+
+
+
+const createRightClickMenu = (event, target) => {
+    event.preventDefault();
+    $("#userInteractionTemplates").loadTemplates();
+
+    // const tgtClass = event.target.classList[0];
+
+    let tgtClass = event.target.className;
+    let tgtElement = event.target;
+
+
+    if (tgtClass instanceof SVGAnimatedString) {
+        tgtClass = tgtClass.baseVal; // Get the actual string value from SVGAnimatedString
+    }
+
+    if(tgtClass === "")
+    {
+        tgtClass = event.target.parentNode.className;
+    }
+
+    console.log("Target class:", tgtClass);
+
+    // Fires up the task editor for the right clicked task
+
+    /**
+     * Finds the task in ganttMaster and triggers the openFullEditor function from ganttGridEditor.
+     *
+     * @param {Event} event - The event object representing the user interaction.
+     * @param {HTMLElement} target - The target HTML element associated with the context menu.
+     */
+    function openTaskEditor(event, target) {
+        // Prevent default interaction
+        event.preventDefault();
+        if (tgtClass === "taskLayout")
+        {
+            $(tgtElement.parentNode).trigger("dblclick");
+        }
+    }
+
+    function addTaskAbove(event, target) {
+        if(!ge)
+        {
+            return false;
+        }
+        else
+        {
+            ge.addAboveCurrentTask();
+        }
+    }
+
+    function addTaskBelow(event, target) {
+        if(!ge)
+        {
+            return false;
+        }
+        else
+        {
+            ge.addBelowCurrentTask();
+        }
+    }
+
+    function addChildTask(event, target) {
+        if(!ge)
+        {
+            return false;
+        }
+        else
+        {
+            ge.addBelowCurrentTask();
+            ge.indentCurrentTask();
+        }
+    }
+
+    function deleteTask(event, target) {
+        if(!ge)
+        {
+            return false;
+        }
+        else
+        {
+            ge.deleteCurrentTask();
+        }
+    }
+
+    function addFollowOnTask(event, target) {
+        if(!ge)
+        {
+            return false;
+        }
+        else
+        {
+            const taskPair = ge.addBelowCurrentTask();
+            if(taskPair)
+            {
+                /* Add the dependency in for the new task */
+                taskPair[1].depends = String(taskPair[0].id);
+                const newLink = {
+                    id: `${taskPair[0].id}-${taskPair[1].id}`,
+                    from: taskPair[0],
+                    to: taskPair[1],
+                    lag: 0
+                }
+                ge.links.push(newLink);
+                ge.redraw();
+            }
+        }
+    }
+
+    /* json to define what menus to show when */
+    let rcMenuSetups = [
+        {
+            objClass:"taskLayout",
+            rcMenuItems: [
+                {text:"Edit Task", iconName:"edit", func:openTaskEditor},
+                // {text:"Task Details", iconName: "notes", func:null},
+                {text:"Add Task", iconName:"add", func:addTaskAbove},
+                {text:"Delete Task", iconName: "delete", func:deleteTask},
+                {text:"Add Task Above", iconName: "add_row_above", func:addTaskAbove},
+                {text:"Add Task Below", iconName: "add_row_below", func:addTaskBelow},
+                {text:"Add Follow On Task", iconName: "view_object_track", func:addFollowOnTask},
+                {text:"Add Sub Task", iconName: "place_item", func:addChildTask},
+            ]
+        },
+        {
+            objClass:"gdfCell",
+            rcMenuItems: [
+                {text:"Edit Task", iconName:"edit", func:openTaskEditor},
+                // {text:"Task Details", iconName: "notes", func:null},
+                {text:"Add Task", iconName:"add", func:null},
+                {text:"Delete Task", iconName: "delete", func:null},
+                {text:"Add Task Above", iconName: "add_row_above", func:null},
+                {text:"Add Task Below", iconName: "add_row_below", func:null},
+                {text:"Add Follow On Task", iconName: "view_object_track", func:null},
+                {text:"Add Sub Task", iconName: "place_item", func:null},
+            ]
+        },
+        {
+            objClass:"taskLinkPathSVG",
+            rcMenuItems: [
+            ]
+        },
+        {
+            objClass:"menuItem portfolio",
+            rcMenuItems: [
+                {text:"Expand Portfolio", iconName: "expand", func:null},
+                {text:"Add Programme", iconName: "add", func:null},
+                {text:"Add Project", iconName: "add", func:null},
+            ]
+        },
+        {
+            objClass:"menuItem programme",
+            rcMenuItems: [
+                {text:"Expand Programme", iconName: "expand", func:null},
+                {text:"Add Project", iconName: "add", func:null},
+            ]
+        }
+    ];
+
+    rcMenuSetups.push({objClass:"gdfCell indentCell", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+    rcMenuSetups.push({objClass:"gdfCell taskAssigs", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+    rcMenuSetups.push({objClass:"gdfCell requireCanSeeDep", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+    rcMenuSetups.push({objClass:"date", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+    rcMenuSetups.push({objClass:"taskRowIndex", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+    rcMenuSetups.push({objClass:"validated", rcMenuItems: rcMenuSetups.find(setup => setup.objClass === "gdfCell").rcMenuItems});
+
+
+    let riClkMenu = $.JST.createFromTemplate("", "RIGHT_CLICK_MENU");
+
+    if (!ge) {
+        console.error("ganttMaster object is not available");
+        return;
+    }
+
+    // Obtain task ID or details from the target element (assuming it has some identifying attribute like 'data-task-id')
+    // const taskId = target.closest("[data-task-id]")?.getAttribute("data-task-id");
+    // const taskId = null;
+    // console.log("Task ID:", taskId);
+    // if (!taskId) {
+    //     console.error("Task ID not found on the target element");
+    //     return false;
+    // }
+
+
+// Find the matching menu setup for the target class
+    const menuSetup = rcMenuSetups.find(setup => setup.objClass === tgtClass);
+    console.log("Menu setup:", menuSetup);
+    if (menuSetup && menuSetup.rcMenuItems.length > 0) {
+        // Create menu rows dynamically for each menu item
+        menuSetup.rcMenuItems.forEach(menuItem => {
+            const menuRow = $.JST.createFromTemplate(menuItem, "RIGHT_CLICK_MENU_ITEM");
+            if (menuItem.func !== null) {
+                $(menuRow).on('click', menuItem.func/*(event, target)*/);
+            }
+            console.log("Menu row:", menuRow);
+            // Append the row to the context menu
+            $(riClkMenu).append(menuRow);
+        });
+    } else {
+        console.warn(`No menu setup found or menu items are empty for target class: ${tgtClass}`);
+        return false;
+    }
+
+    document.body.appendChild($(riClkMenu)[0]);
+
+
+    $(riClkMenu)[0].style.left = `${event.clientX}px`;
+    $(riClkMenu)[0].style.top = `${event.clientY}px`;
+    console.log("Right click menu:", riClkMenu);
+    console.log("X,Y:", event.pageX, ",",event.pageY)
+    $(riClkMenu)[0].style.display = "block";
+    cMenu = $(riClkMenu);
+
+}
+
+
