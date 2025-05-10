@@ -354,6 +354,224 @@ let cMenuVisible = false;
 
 
 /**
+ * Creates a summary popup at the mouse position.
+ * The popup consists of a `callOutMain` div and a `callOutPointer` div, dynamically positioned to ensure it stays within the document window.
+ * The triangle pointer connects the mouse position to the popup.
+ *
+ * @param {MouseEvent} event - The mouse event containing the position to anchor the popup.
+ * @returns {HTMLElement} - The resulting div element for the callout.
+ */
+function createSummaryPopup(event) {
+    event.preventDefault();
+    const userInteractionTemplates = $("#userInteractionTemplates");
+    userInteractionTemplates.loadTemplates();
+
+    // Remove any existing callouts
+    document.querySelectorAll('.callout').forEach(existing => existing.remove());
+
+    // Remove any existing right click menus
+    if(cMenu !== null)
+    {
+        hideContextMenu(event, this);
+        cMenu = null;
+    }
+    document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    // Main container for the callout
+    const callOutContainer = $.JST.createFromTemplate({}, "SUMMARY_POPUP");
+    callOutContainer.addClass('callout'); // Add class to identify it as a callout
+    callOutContainer.css({
+        position: 'absolute',
+        zIndex: '1000',
+        pointerEvents: 'auto', // Ensure interactions are enabled after creation
+        display: 'none' // Initially hide the container
+    });
+
+    // Ensure the callOutMain and callOutPointer exist in the template
+    const callOutMain = callOutContainer.find('.callOutMain');
+    if (callOutMain.length === 0) {
+        console.error("Template does not contain 'callOutMain' element.");
+        return;
+    }
+
+    const callOutPointer = callOutContainer.find('.callOutPointer');
+    if (callOutPointer.length === 0) {
+        console.error("Template does not contain 'callOutPointer' element.");
+        return;
+    }
+
+    
+    
+    // Apply styles to the main content area
+    callOutMain.css({
+        position: 'relative',
+        background: '#cdbdbd',
+        border: '1px solid #ccc',
+        borderRadius: '5px',
+        boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)',
+        padding: '10px',
+        minWidth: '200px',
+        minHeight: '100px'
+    });
+
+
+    // Triangle pointer styles (default reset)
+    callOutPointer.css({
+        width: '0',
+        height: '0',
+    });
+
+    // Append the callout to the body
+    $('body').append(callOutContainer);
+
+    // Get mouse position
+    const mouseX = event.clientX;
+    const mouseY = event.clientY;
+
+    // Get viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Dimensions of callout
+    const popupWidth = 220;
+    const popupHeight = 120;
+    const pointerSize = 10;
+
+    let popupX = mouseX;
+    let popupY = mouseY;
+    let pointerStyle = {};
+
+    // Determine the best position for the popup
+    if (mouseX + popupWidth < viewportWidth && mouseY + popupHeight + pointerSize < viewportHeight) {
+        popupX = mouseX + pointerSize;
+        popupY = mouseY + pointerSize;
+        pointerStyle = {
+            left: `${-pointerSize}px`,
+            top: '0',
+            borderLeft: '10px solid transparent',
+            borderRight: '10px solid transparent',
+            borderBottom: '10px solid #ffffff',
+        };
+    } else if (mouseX - popupWidth > 0 && mouseY + popupHeight + pointerSize < viewportHeight) {
+        popupX = mouseX - popupWidth - pointerSize;
+        popupY = mouseY + pointerSize;
+        pointerStyle = {
+            right: `${-pointerSize}px`,
+            top: '0',
+            borderLeft: '10px solid #ffffff',
+            borderRight: '10px solid transparent',
+            borderTop: '10px solid transparent',
+        };
+    } else if (mouseX + popupWidth < viewportWidth && mouseY - popupHeight - pointerSize > 0) {
+        popupX = mouseX + pointerSize;
+        popupY = mouseY - popupHeight - pointerSize;
+        pointerStyle = {
+            left: `${-pointerSize}px`,
+            bottom: '0',
+            borderLeft: '10px solid transparent',
+            borderRight: '10px solid transparent',
+            borderTop: '10px solid #ffffff',
+        };
+    } else if (mouseX - popupWidth > 0 && mouseY - popupHeight - pointerSize > 0) {
+        popupX = mouseX - popupWidth - pointerSize;
+        popupY = mouseY - popupHeight - pointerSize;
+        pointerStyle = {
+            right: `${-pointerSize}px`,
+            bottom: '0',
+            borderLeft: '10px solid #ffffff',
+            borderRight: '10px solid transparent',
+            borderBottom: '10px solid transparent',
+        };
+    }
+    
+    callOutPointer.css({
+        ...pointerStyle,
+        position: 'relative',
+        borderBottomColor: callOutMain.css('background'), // Ensures pointer color matches callOutMain
+        borderTopColor: callOutMain.css('background'),   // For cases where the pointer faces upwards
+        borderLeftColor: callOutMain.css('background'),  // For cases where the pointer faces left
+        borderRightColor: callOutMain.css('background')  // For cases where the pointer faces right
+    });
+    
+
+    // Ensure popup stays within the window boundaries
+    popupX = Math.max(0, Math.min(popupX, viewportWidth - popupWidth));
+    popupY = Math.max(0, Math.min(popupY, viewportHeight - popupHeight));
+
+
+    // Apply calculated positions and pointer style
+    callOutMain.css({
+        left: callOutPointer.position().left + callOutPointer.width() + 'px',
+        top: callOutPointer.position().top + callOutPointer.height() + 'px',
+    });
+    
+    
+    callOutPointer.css(pointerStyle);
+
+    // Display the callout
+    callOutContainer.css({ display: 'block' });
+
+    // Attach the pointer to the callOutContainer
+    callOutContainer.append(callOutPointer);
+
+
+
+    // // Event handlers for removing the callout
+    // if (event.type === 'mouseenter') {
+    //     callOutContainer.on('mouseleave', () => {
+    //         callOutContainer.remove();
+    //     });
+    // } else {
+    //     $(document).on('click', (e) => {
+    //         if (!callOutContainer.is(e.target) && callOutContainer.has(e.target).length === 0) {
+    //             callOutContainer.remove();
+    //             $(document).off('click');
+    //         }
+    //     });
+    // }
+
+    
+    callOutContainer.css({
+        width: `${popupWidth}px`,
+        height: `${popupHeight}px`,
+        left: `${popupX}px`,
+        top: `${popupY}px`,
+    });
+    $(callOutContainer).css({display: 'block',zIndex: '3000'});
+    return callOutContainer[0];
+}
+
+
+/**
+ * Adds rows to the callOutTable based on the given input.
+ *
+ * @param {Array<Array<string>> | null} data - A 2D array or null. If it's a 2D array, the rows' data will be added to the table. If null, a blank row will be added.
+ * @param {HTMLElement} callOutTable - The target HTML table element where rows should be added.
+ */
+function addRowsToCallOutTable(data, callOutTable) {
+    if (!callOutTable || !(callOutTable instanceof HTMLTableElement)) {
+        console.error("Invalid table element provided.");
+        return;
+    }
+
+    if (Array.isArray(data)) {
+        // Add rows based on the 2D array
+        data.forEach(rowData => {
+            const row = callOutTable.insertRow(); // Create a new table row
+            rowData.forEach(cellData => {
+                const cell = row.insertCell(); // Create a new cell for the row
+                cell.textContent = cellData; // Add the text content to the cell
+            });
+        });
+    } else if (data === null) {
+        // Add a blank row
+        const row = callOutTable.insertRow(); // Create a blank row
+        const blankCell = row.insertCell(); // Create a single blank cell
+        blankCell.textContent = ""; // Add an empty string to the cell
+    }
+}
+
+/**
  * Hides the context menu if the clicked target is outside of the specified menu element.
  *
  * @param {Event} event The event object representing the user interaction.
@@ -513,7 +731,7 @@ const createRightClickMenu = (event, target) => {
             objClass:"taskLayout",
             rcMenuItems: [
                 {text:"Edit Task", iconName:"edit", func:openTaskEditor},
-                // {text:"Task Details", iconName: "notes", func:null},
+                {text:"Task Details", iconName: "notes", func:createSummaryPopup},
                 {text:"Add Task", iconName:"add", func:addTaskAbove},
                 {text:"Delete Task", iconName: "delete", func:deleteTask},
                 {text:"Add Task Above", iconName: "add_row_above", func:addTaskAbove},
@@ -526,7 +744,7 @@ const createRightClickMenu = (event, target) => {
             objClass:"gdfCell",
             rcMenuItems: [
                 {text:"Edit Task", iconName:"edit", func:openTaskEditor},
-                // {text:"Task Details", iconName: "notes", func:null},
+                // {text:"Task Details", iconName: "notes", func:createSummaryPopup},
                 {text:"Add Task", iconName:"add", func:null},
                 {text:"Delete Task", iconName: "delete", func:null},
                 {text:"Add Task Above", iconName: "add_row_above", func:null},
